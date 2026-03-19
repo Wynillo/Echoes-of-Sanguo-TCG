@@ -2,10 +2,10 @@
 // AETHERIAL CLASH - Kartendatenbank
 // ============================================================
 
-const ATTR = { FIRE: 'fire', WATER: 'water', EARTH: 'earth', WIND: 'wind', LIGHT: 'light', DARK: 'dark' };
-const TYPE = { NORMAL: 'normal', EFFECT: 'effect', FUSION: 'fusion', SPELL: 'spell', TRAP: 'trap' };
+export const ATTR = { FIRE: 'fire', WATER: 'water', EARTH: 'earth', WIND: 'wind', LIGHT: 'light', DARK: 'dark' };
+export const TYPE = { NORMAL: 'normal', EFFECT: 'effect', FUSION: 'fusion', SPELL: 'spell', TRAP: 'trap' };
 
-const RACE = {
+export const RACE = {
   FEUER:   'feuer',
   DRACHE:  'drache',
   FLUG:    'flug',
@@ -18,19 +18,19 @@ const RACE = {
   WASSER:  'wasser',
 };
 
-const RACE_NAME = {
+export const RACE_NAME = {
   feuer: 'Feuer', drache: 'Drache', flug: 'Flug', stein: 'Stein',
   pflanze: 'Pflanze', krieger: 'Krieger', magier: 'Magier',
   elfe: 'Elfe', daemon: 'Dämon', wasser: 'Wasser',
 };
 
-const RACE_ICON = {
+export const RACE_ICON = {
   feuer: '🔥', drache: '🐲', flug: '🦅', stein: '🪨',
   pflanze: '🌿', krieger: '⚔️', magier: '🔮',
   elfe: '✨', daemon: '💀', wasser: '🌊',
 };
 
-const RARITY = {
+export const RARITY = {
   COMMON:     'common',
   UNCOMMON:   'uncommon',
   RARE:       'rare',
@@ -38,14 +38,14 @@ const RARITY = {
   ULTRA_RARE: 'ultra_rare',
 };
 
-const RARITY_NAME  = { common:'Common', uncommon:'Uncommon', rare:'Rare', super_rare:'Super Rare', ultra_rare:'Ultra Rare' };
-const RARITY_COLOR = { common:'#aaa', uncommon:'#7ec8e3', rare:'#f5c518', super_rare:'#c084fc', ultra_rare:'#f97316' };
+export const RARITY_NAME  = { common:'Common', uncommon:'Uncommon', rare:'Rare', super_rare:'Super Rare', ultra_rare:'Ultra Rare' };
+export const RARITY_COLOR = { common:'#aaa', uncommon:'#7ec8e3', rare:'#f5c518', super_rare:'#c084fc', ultra_rare:'#f97316' };
 
-const ATTR_SYMBOL = { fire: '♨', water: '◎', earth: '◆', wind: '∿', light: '☀', dark: '☽' };
-const ATTR_NAME   = { fire: 'Feuer', water: 'Wasser', earth: 'Erde', wind: 'Wind', light: 'Licht', dark: 'Dunkel' };
+export const ATTR_SYMBOL = { fire: '♨', water: '◎', earth: '◆', wind: '∿', light: '☀', dark: '☽' };
+export const ATTR_NAME   = { fire: 'Feuer', water: 'Wasser', earth: 'Erde', wind: 'Wind', light: 'Licht', dark: 'Dunkel' };
 
 // ── Kartendatenbank ──────────────────────────────────────────
-const CARD_DB = {
+export const CARD_DB = {
 
   // ===== NORMALE MONSTER =====
   'M001': {
@@ -156,7 +156,7 @@ const CARD_DB = {
     id:'M022', name:'Flammenphönix', type:TYPE.EFFECT,
     attribute:ATTR.FIRE, race:RACE.FEUER, rarity:RARITY.RARE, level:5, atk:1700, def:1300,
     description:'[Effekt] Wenn durch den Gegner zerstört: Kann einmalig mit 500 weniger ATK als Spezialbeschwörung aus dem Friedhof beschworen werden.',
-    effect: { trigger:'onDestroyByOpponent', apply(gs, owner){ /* handled in battle resolution */ } }
+    effect: { trigger:'passive', phoenixRevival: true }
   },
   'M023': {
     id:'M023', name:'Blitzmagier', type:TYPE.EFFECT,
@@ -168,7 +168,7 @@ const CARD_DB = {
     id:'M024', name:'Heiliger Krieger', type:TYPE.EFFECT,
     attribute:ATTR.LIGHT, race:RACE.KRIEGER, rarity:RARITY.RARE, level:6, atk:2100, def:1800,
     description:'[Passiv] Im Kampf gegen ein DUNKEL-Monster: +500 ATK.',
-    effect: { trigger:'passive' }
+    effect: { trigger:'passive', vsAttrBonus: { attr: ATTR.DARK, atk: 500 } }
   },
   'M025': {
     id:'M025', name:'Schattensensenmann', type:TYPE.EFFECT,
@@ -349,7 +349,7 @@ const CARD_DB = {
 };
 
 // ── Fusionsrezepte ─────────────────────────────────────────
-const FUSION_RECIPES = [
+export const FUSION_RECIPES = [
   { materials:['M001','M002'], result:'M027' },   // Lavakoloss
   { materials:['M003','M004'], result:'M028' },   // Sturmleviathan
   { materials:['M005','M020'], result:'M029' },   // Schattendracos
@@ -363,7 +363,7 @@ const FUSION_RECIPES = [
 ];
 
 // ── Decks ──────────────────────────────────────────────────
-const PLAYER_DECK_IDS = [
+export const PLAYER_DECK_IDS = [
   'M001','M001','M002','M002','M003','M003',
   'M004','M005','M006','M008',
   'M009','M019','M020','M022','M023',
@@ -371,7 +371,7 @@ const PLAYER_DECK_IDS = [
   'T001','T003'
 ];
 
-const OPPONENT_DECK_IDS = [
+export const OPPONENT_DECK_IDS = [
   'M002','M002','M003','M003','M004','M004',
   'M007','M007','M009','M009',
   'M024','M025','M026','M006',
@@ -380,11 +380,11 @@ const OPPONENT_DECK_IDS = [
   'T002','T004'
 ];
 
-function makeDeck(ids) {
+export function makeDeck(ids) {
   return ids.map(id => Object.assign({}, CARD_DB[id]));
 }
 
-function checkFusion(id1, id2) {
+export function checkFusion(id1, id2) {
   return FUSION_RECIPES.find(r =>
     (r.materials[0]===id1 && r.materials[1]===id2) ||
     (r.materials[0]===id2 && r.materials[1]===id1)
@@ -394,7 +394,7 @@ function checkFusion(id1, id2) {
 // ── Gegner-Konfigurationen ──────────────────────────────────
 // Jeder Gegner hat ein thematisches Deck aus den bestehenden Karten.
 // In Phase 3 werden diese mit den neuen Karten erweitert.
-const OPPONENT_CONFIGS = [
+export const OPPONENT_CONFIGS = [
   {
     id: 1,
     name: 'Lehrling Finn',

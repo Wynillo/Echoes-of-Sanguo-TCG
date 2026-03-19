@@ -3,7 +3,9 @@
 // Verwaltet: Münzen, Sammlung, Deck, Gegner-Unlock
 // ============================================================
 
-const Progression = (() => {
+import type { CollectionEntry, OpponentRecord } from './types.js';
+
+export const Progression = (() => {
 
   const KEYS = {
     initialized:    'ac_initialized',
@@ -13,17 +15,29 @@ const Progression = (() => {
     deck:           'ac_deck',
     coins:          'ac_aether_coins',
     opponents:      'ac_opponents',
+    version:        'ac_save_version',
   };
 
+  const SAVE_VERSION   = 1;   // increment when save format changes incompatibly
   const OPPONENT_COUNT = 10;
 
   // ── Hilfsfunktionen ──────────────────────────────────────
 
-  function _load(key, fallback) {
+  /**
+   * @param {string}    key       localStorage key
+   * @param {*}         fallback  value returned when key is absent, unparseable, or invalid
+   * @param {Function}  [validator]  optional fn(parsed) → boolean; returns fallback when false
+   */
+  function _load(key, fallback, validator?) {
     try {
       const raw = localStorage.getItem(key);
       if (raw === null) return fallback;
-      return JSON.parse(raw);
+      const parsed = JSON.parse(raw);
+      if (validator && !validator(parsed)) {
+        console.warn(`[Progression] Ungültiges Format für "${key}" – Fallback wird genutzt.`);
+        return fallback;
+      }
+      return parsed;
     } catch (e) {
       return fallback;
     }
@@ -33,8 +47,8 @@ const Progression = (() => {
     localStorage.setItem(key, JSON.stringify(value));
   }
 
-  function _defaultOpponents() {
-    const ops = {};
+  function _defaultOpponents(): Record<number, OpponentRecord> {
+    const ops: Record<number, OpponentRecord> = {};
     for (let i = 1; i <= OPPONENT_COUNT; i++) {
       ops[i] = { unlocked: i === 1, wins: 0, losses: 0 };
     }
@@ -55,11 +69,14 @@ const Progression = (() => {
         localStorage.setItem(KEYS.deck, legacyDeck);
       }
       localStorage.setItem(KEYS.initialized, '1');
+      _save(KEYS.version, SAVE_VERSION);
     } else {
       // Fehlende Felder ergänzen (nach Updates)
       if (!localStorage.getItem(KEYS.coins)) _save(KEYS.coins, 0);
       if (!localStorage.getItem(KEYS.collection)) _save(KEYS.collection, []);
       if (!localStorage.getItem(KEYS.opponents)) _save(KEYS.opponents, _defaultOpponents());
+      // Versionsstempel setzen falls fehlend (bestehende Saves von vor v1)
+      if (!localStorage.getItem(KEYS.version)) _save(KEYS.version, SAVE_VERSION);
     }
   }
 
@@ -78,18 +95,18 @@ const Progression = (() => {
 
   // ── Münzen ───────────────────────────────────────────────
 
-  function getCoins() {
-    return _load(KEYS.coins, 0);
+  function getCoins(): number {
+    return _load(KEYS.coins, 0, v => typeof v === 'number' && v >= 0);
   }
 
-  function addCoins(amount) {
+  function addCoins(amount: number): number {
     const current = getCoins();
     _save(KEYS.coins, current + Math.max(0, amount));
     return getCoins();
   }
 
   /** Gibt false zurück wenn nicht genug Münzen vorhanden */
-  function spendCoins(amount) {
+  function spendCoins(amount: number): boolean {
     const current = getCoins();
     if (current < amount) return false;
     _save(KEYS.coins, current - amount);
@@ -98,14 +115,14 @@ const Progression = (() => {
 
   // ── Sammlung ─────────────────────────────────────────────
 
-  function getCollection() {
-    return _load(KEYS.collection, []);
+  function getCollection(): CollectionEntry[] {
+    return _load(KEYS.collection, [], v => Array.isArray(v));
   }
 
   /** cards: Array von Card-Objekten oder ID-Strings */
-  function addCardsToCollection(cards) {
+  function addCardsToCollection(cards: (string | { id: string })[]): void {
     const col = getCollection();
-    const map = {};
+    const map: Record<string, number> = {};
     col.forEach(entry => { map[entry.id] = entry.count; });
 
     cards.forEach(card => {
@@ -118,14 +135,14 @@ const Progression = (() => {
   }
 
   /** Gibt true zurück wenn der Spieler mindestens 1 Exemplar der Karte besitzt */
-  function ownsCard(cardId) {
+  function ownsCard(cardId: string): boolean {
     const col = getCollection();
     const entry = col.find(e => e.id === cardId);
     return !!entry && entry.count > 0;
   }
 
   /** Gibt die Anzahl der besessenen Exemplare zurück */
-  function cardCount(cardId) {
+  function cardCount(cardId: string): number {
     const col = getCollection();
     const entry = col.find(e => e.id === cardId);
     return entry ? entry.count : 0;
@@ -133,9 +150,9 @@ const Progression = (() => {
 
   // ── Deck ─────────────────────────────────────────────────
 
-  function getDeck() {
+  function getDeck(): string[] | null {
     // Versuche neuen Key, dann alten Legacy-Key
-    const deck = _load(KEYS.deck, null);
+    const deck = _load(KEYS.deck, null, v => Array.isArray(v) && v.every(id => typeof id === 'string'));
     if (deck) return deck;
     try {
       const legacy = localStorage.getItem('aetherialClash_deck');
@@ -144,7 +161,7 @@ const Progression = (() => {
     return null;
   }
 
-  function saveDeck(deckIds) {
+  function saveDeck(deckIds: string[]): void {
     _save(KEYS.deck, deckIds);
     // Legacy-Key synchron halten für Abwärtskompatibilität
     localStorage.setItem('aetherialClash_deck', JSON.stringify(deckIds));
@@ -152,12 +169,13 @@ const Progression = (() => {
 
   // ── Gegner ───────────────────────────────────────────────
 
-  function getOpponents() {
-    return _load(KEYS.opponents, _defaultOpponents());
+  function getOpponents(): Record<number, OpponentRecord> {
+    return _load(KEYS.opponents, _defaultOpponents(),
+      v => v !== null && typeof v === 'object' && !Array.isArray(v));
   }
 
-  function recordDuelResult(opponentId, won) {
-    const id = parseInt(opponentId, 10);
+  function recordDuelResult(opponentId: number | string, won: boolean): void {
+    const id = parseInt(opponentId as string, 10);
     const ops = getOpponents();
     if (!ops[id]) return;
 
@@ -173,9 +191,9 @@ const Progression = (() => {
     _save(KEYS.opponents, ops);
   }
 
-  function isOpponentUnlocked(opponentId) {
+  function isOpponentUnlocked(opponentId: number | string): boolean {
     const ops = getOpponents();
-    const id = parseInt(opponentId, 10);
+    const id = parseInt(opponentId as string, 10);
     return !!(ops[id] && ops[id].unlocked);
   }
 

@@ -3,8 +3,16 @@
 // 672 neue Karten + STARTER_DECKS
 // Lädt nach cards.js und erweitert CARD_DB global.
 // ============================================================
-(function () {
-  'use strict';
+import { CARD_DB, RARITY, RACE, ATTR, TYPE } from './cards.js';
+
+// Wraps every CARD_DB write — warns in the console if an ID is reused.
+// This is a development guard only; the last write still wins.
+function _addCard(id, def) {
+  if (CARD_DB[id]) {
+    console.warn(`[CARD_DB] ID-Kollision: "${id}" (bestehend: "${CARD_DB[id].name}") wird überschrieben.`);
+  }
+  CARD_DB[id] = def;
+}
 
   // ── Effekt-Fabriken ─────────────────────────────────────────
   function fxBurnSummon(n)      { return { trigger:'onSummon',          apply(gs,o){ gs.dealDamage(o==='player'?'opponent':'player', n); } }; }
@@ -248,12 +256,12 @@
       const level=levelForIdx(idx);
       const id=prefix+String(idx+1).padStart(2,'0');
       const {atk,def}=calcStats(level,race,idx);
-      CARD_DB[id]={
+      _addCard(id, {
         id, name, type:TYPE.NORMAL,
         attribute:attr, race:raceRef, rarity:rarityForIdx(idx),
         level, atk, def,
         description:NM_FLAVOR[race](level),
-      };
+      });
     });
   }
 
@@ -493,13 +501,13 @@
 
   EFFECT_ENTRIES.forEach(([id,name,level,rarity,atk,def,desc,effect])=>{
     const pfx=id.slice(0,3);
-    CARD_DB[id]={
+    _addCard(id, {
       id, name, type:TYPE.EFFECT,
       attribute:EFFECT_ATTR[pfx],
       race:EFFECT_RACE[pfx],
       rarity:RARITY[rarity.toUpperCase()]||rarity,
       level, atk, def, description:desc, effect,
-    };
+    });
   });
 
   // ── 20 neue Fusionsmonster ─────────────────────────────────
@@ -537,11 +545,11 @@
   ];
 
   FUSION_NEW.forEach(([id,name,level,rarity,attr,race,atk,def,desc,effect])=>{
-    CARD_DB[id]={
+    _addCard(id, {
       id, name, type:TYPE.FUSION,
       attribute:attr, race, rarity:RARITY[rarity.toUpperCase()]||rarity,
       level, atk, def, description:desc, effect,
-    };
+    });
   });
 
   // ── Erweiterte Fusionsrezepte ────────────────────────────────
@@ -653,13 +661,13 @@
   ];
 
   SPELL_ENTRIES.forEach(([id,name,race,rarity,desc,effect])=>{
-    CARD_DB[id]={
+    _addCard(id, {
       id, name, type:TYPE.SPELL,
       race, rarity:RARITY[rarity.toUpperCase()]||rarity,
       description:desc,
       spellType:'normal',
       effect,
-    };
+    });
   });
 
   // ── 40 Fallenkarten (4 pro Rasse) ───────────────────────────
@@ -717,17 +725,17 @@
   ];
 
   TRAP_ENTRIES.forEach(([id,name,race,rarity,desc,trapTrigger,effect])=>{
-    CARD_DB[id]={
+    _addCard(id, {
       id, name, type:TYPE.TRAP,
       race, rarity:RARITY[rarity.toUpperCase()]||rarity,
       description:desc,
       trapTrigger,
       effect,
-    };
+    });
   });
 
   // ── Starterdecks (40 Karten je Rasse) ────────────────────────
-  window.STARTER_DECKS = {
+export const STARTER_DECKS = {
     feuer: [
       'NFE01','NFE01','NFE02','NFE02','NFE05','NFE05','NFE06','NFE06',
       'NFE09','NFE09','NFE10','NFE10','NFE11','NFE11','NFE15','NFE15',
@@ -818,6 +826,4 @@
       'S002','S005',
       'T002','T004','QWA1','QWA2','QWA3','QWA4',
     ],
-  };
-
-})();
+};

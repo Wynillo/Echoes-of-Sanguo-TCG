@@ -1,6 +1,8 @@
 // ============================================================
 // AETHERIAL CLASH - Shop & Booster System
 // ============================================================
+import { CARD_DB, RARITY, RARITY_COLOR, RARITY_NAME, RACE_NAME, RACE_ICON, RACE } from './cards.js';
+import { Progression } from './progression.js';
 
 const PACK_TYPES = {
   starter: {
@@ -183,32 +185,36 @@ function _buyPack(packType, race) {
   }
   const cards = openPack(packType, race);
   _lastOpenedCards = cards;
+  // Snapshot BEFORE adding — used by _showPackOpening to determine which cards are truly new
+  const preOpenCollection = Progression.getCollection();
   Progression.addCardsToCollection(cards.map(c => c.id));
-  _showPackOpening(cards);
+  _showPackOpening(cards, preOpenCollection);
 }
 
 // ── Pack Opening Screen ───────────────────────────────────
 
-function _showPackOpening(cards) {
+function _showPackOpening(cards, preOpenCollection) {
   document.getElementById('shop-screen').classList.add('hidden');
   const screen = document.getElementById('pack-opening-screen');
   screen.classList.remove('hidden');
-  _renderPackCards(cards);
+  _renderPackCards(cards, preOpenCollection);
 }
 
-function _renderPackCards(cards) {
+function _renderPackCards(cards, preOpenCollection) {
   const grid = document.getElementById('pack-card-grid');
   if (!grid) return;
   grid.innerHTML = '';
 
-  // Track which IDs are new (player didn't own before buying)
-  // (We already added them, so check count > 1 for "new")
-  const collection = Progression.getCollection();
-  const countMap = {};
-  collection.forEach(e => { countMap[e.id] = e.count; });
+  // Build a set of IDs the player owned BEFORE this pack was opened.
+  // Comparing against the pre-open snapshot correctly marks first-ever
+  // acquisitions as new — even when the same card appears twice in one pack.
+  const ownedBefore = new Set();
+  if (preOpenCollection) {
+    preOpenCollection.forEach(e => { if (e.count > 0) ownedBefore.add(e.id); });
+  }
 
   cards.forEach((card, i) => {
-    const isNew = (countMap[card.id] || 0) <= 1;
+    const isNew = !ownedBefore.has(card.id);
     const rarity = card.rarity || RARITY.COMMON;
     const rarColor = RARITY_COLOR[rarity] || '#aaa';
 

@@ -185,15 +185,15 @@
   </div>
 
   <!-- ACTION BAR -->
-  <div id="action-bar">
+  <div id="action-bar" role="toolbar" aria-label="Spielsteuerung">
     <div id="phase-buttons">
-      <button id="btn-main-to-battle" class="phase-btn" disabled>⚔ Kampfphase</button>
-      <button id="btn-battle-to-end"  class="phase-btn" disabled>→ Endphase</button>
-      <button id="btn-end-turn"       class="phase-btn btn-end-turn">⏭ Zug Beenden</button>
+      <button id="btn-main-to-battle" class="phase-btn" disabled aria-label="Zur Kampfphase wechseln (B)">⚔ Kampfphase</button>
+      <button id="btn-battle-to-end"  class="phase-btn" disabled aria-label="Zur Endphase wechseln (E)">→ Endphase</button>
+      <button id="btn-end-turn"       class="phase-btn btn-end-turn" aria-label="Zug beenden (T)">⏭ Zug Beenden</button>
     </div>
-    <div id="action-hint"></div>
-    <button id="btn-card-list-game" class="btn-small">📖 Karten</button>
-    <button id="btn-download-log"   class="btn-small btn-log">💾 Log</button>
+    <div id="action-hint" role="status" aria-live="polite"></div>
+    <button id="btn-card-list-game" class="btn-small" aria-label="Alle Karten anzeigen">📖 Karten</button>
+    <button id="btn-download-log"   class="btn-small btn-log" aria-label="Debug-Log herunterladen">💾 Log</button>
   </div>
 
   <!-- BATTLE LOG -->
@@ -231,14 +231,14 @@
 <div id="modal-overlay" class="hidden">
 
   <!-- Card Action Menu -->
-  <div id="card-action-menu" class="modal hidden">
+  <div id="card-action-menu" class="modal hidden" role="dialog" aria-labelledby="action-menu-title" aria-modal="true">
     <h3 id="action-menu-title">Aktion wählen</h3>
     <div id="action-buttons"></div>
-    <button id="btn-cancel-action" class="btn-cancel">✕ Abbrechen</button>
+    <button id="btn-cancel-action" class="btn-cancel" aria-label="Abbrechen (Escape)">✕ Abbrechen</button>
   </div>
 
   <!-- Card Detail -->
-  <div id="card-detail-modal" class="modal hidden">
+  <div id="card-detail-modal" class="modal hidden" role="dialog" aria-labelledby="detail-card-name" aria-modal="true">
     <div class="detail-layout">
       <div id="detail-card-render" class="card big-card"></div>
       <div class="detail-info">
@@ -248,11 +248,11 @@
         <p id="detail-card-stats" class="detail-stats"></p>
       </div>
     </div>
-    <button id="btn-close-detail" class="btn-cancel">✕ Schließen</button>
+    <button id="btn-close-detail" class="btn-cancel" aria-label="Schließen (Escape)">✕ Schließen</button>
   </div>
 
   <!-- Trap Prompt -->
-  <div id="trap-prompt-modal" class="modal hidden">
+  <div id="trap-prompt-modal" class="modal hidden" role="dialog" aria-labelledby="trap-prompt-title" aria-modal="true">
     <h3 id="trap-prompt-title">Falle aktivieren?</h3>
     <div id="trap-prompt-card"></div>
     <p id="trap-prompt-msg"></p>
@@ -263,21 +263,21 @@
   </div>
 
   <!-- Grave Selection -->
-  <div id="grave-select-modal" class="modal hidden">
+  <div id="grave-select-modal" class="modal hidden" role="dialog" aria-label="Monster aus dem Friedhof wählen" aria-modal="true">
     <h3>Monster aus dem Friedhof wählen</h3>
-    <div id="grave-select-list" class="card-select-list"></div>
-    <button id="btn-close-grave" class="btn-cancel">✕ Abbrechen</button>
+    <div id="grave-select-list" class="card-select-list" role="list"></div>
+    <button id="btn-close-grave" class="btn-cancel" aria-label="Abbrechen (Escape)">✕ Abbrechen</button>
   </div>
 
   <!-- Card List -->
-  <div id="cardlist-modal" class="modal hidden">
+  <div id="cardlist-modal" class="modal hidden" role="dialog" aria-label="Alle Karten" aria-modal="true">
     <h2>Alle Karten - Aetherial Clash</h2>
     <div id="cardlist-content"></div>
-    <button id="btn-close-cardlist" class="btn-cancel">✕ Schließen</button>
+    <button id="btn-close-cardlist" class="btn-cancel" aria-label="Schließen (Escape)">✕ Schließen</button>
   </div>
 
   <!-- Result Screen -->
-  <div id="result-modal" class="modal hidden">
+  <div id="result-modal" class="modal hidden" role="dialog" aria-labelledby="result-title" aria-modal="true">
     <div class="result-content">
       <h1 id="result-title"></h1>
       <p id="result-msg"></p>
@@ -354,12 +354,6 @@
   <div id="collection-grid"></div>
 </div>
 
-<script src="js/cards.js"></script>
-<script src="js/cards-data.js"></script>
-<script src="js/progression.js"></script>
-<script src="js/engine.js"></script>
-<script src="js/screens.js"></script>
-<script src="js/shop.js"></script>
-<script src="js/ui.js"></script>
+<script type="module" src="/js/main.js"></script>
 </body>
 </html>

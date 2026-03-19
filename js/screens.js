@@ -2,6 +2,9 @@
 // AETHERIAL CLASH - Screen Controller
 // Steuert Gegnerauswahl und Titelscreen-Navigation
 // ============================================================
+import { RACE_NAME, RACE_ICON, OPPONENT_CONFIGS, RARITY, RARITY_COLOR, RARITY_NAME, ATTR_NAME, CARD_DB } from './cards.js';
+import { STARTER_DECKS } from './cards-data.js';
+import { Progression } from './progression.js';
 
 // ── Starterdeck-Auswahl ───────────────────────────────────
 
@@ -81,7 +84,7 @@ function _selectStarterRace(race) {
 function _confirmStarterDeck() {
   if (!_selectedStarterRace) return;
   const race = _selectedStarterRace;
-  const deckIds = window.STARTER_DECKS && window.STARTER_DECKS[race];
+  const deckIds = STARTER_DECKS && STARTER_DECKS[race];
   if (!deckIds) { console.error('STARTER_DECKS not loaded for', race); return; }
   Progression.markStarterChosen(race);
   Progression.addCardsToCollection(deckIds);
