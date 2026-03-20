@@ -583,6 +583,13 @@ button { cursor: pointer; border: none; font-family: inherit; transition: all 0.
 .spell-card   { border-color: rgba(40,160,120,0.8); }
 .trap-card    { border-color: rgba(180,40,80,0.8); }
 
+/* Type background tints — subtle color wash layered over attr gradient */
+.normal-card::before { content:''; position:absolute; inset:0; background:rgba(200,180,80,0.06); z-index:0; pointer-events:none; border-radius:inherit; }
+.effect-card::before { content:''; position:absolute; inset:0; background:rgba(160,80,20,0.08);  z-index:0; pointer-events:none; border-radius:inherit; }
+.fusion-card::before { content:''; position:absolute; inset:0; background:rgba(120,40,200,0.09); z-index:0; pointer-events:none; border-radius:inherit; }
+.spell-card::before  { content:''; position:absolute; inset:0; background:rgba(20,140,80,0.08);  z-index:0; pointer-events:none; border-radius:inherit; }
+.trap-card::before   { content:''; position:absolute; inset:0; background:rgba(180,20,60,0.08);  z-index:0; pointer-events:none; border-radius:inherit; }
+
 /* Attribute backgrounds */
 .attr-fire  { background: linear-gradient(160deg, #3a0800 0%, #220500 60%, #0d0200 100%); }
 .attr-water { background: linear-gradient(160deg, #001a3a 0%, #000d22 60%, #000810 100%); }
