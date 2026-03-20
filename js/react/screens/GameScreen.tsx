@@ -23,7 +23,6 @@ export default function GameScreen() {
 
   useKeyboardShortcuts({ gameState, gameRef, resetSel, onHideDirect: hideDirect });
 
-  // Animate draw: newly drawn cards get the class for `pendingDraw` count
   useEffect(() => {
     if (pendingDraw > 0) {
       const timer = setTimeout(clearPendingDraw, 600);
@@ -39,11 +38,9 @@ export default function GameScreen() {
   const phase   = gameState.phase;
   const isMyTurn = gameState.activePlayer === 'player';
 
-  // ── LP bar widths ─────────────────────────────────────────
   const START_LP = 8000;
   function lpPct(lp: number) { return `${Math.max(0, Math.min(100, lp / START_LP * 100))}%`; }
 
-  // ── Selection-derived flags ────────────────────────────────
   const selMode = sel.mode;
 
   function isOppMonsterTargetable(zone: number) {
@@ -74,7 +71,6 @@ export default function GameScreen() {
     return selMode === 'spell-target' && !!player.field.monsters[zone];
   }
 
-  // ── Handlers ──────────────────────────────────────────────
   function onHandCardClick(card: any, index: number) {
     if (!game) return;
     if (selMode === 'fusion1') {
@@ -128,7 +124,6 @@ export default function GameScreen() {
       if (fst.card.spellType !== 'targeted' && fst.card.spellType !== 'fromGrave') {
         game.activateSpellFromField('player', zone);
       }
-      // targeted spells from field are currently no-op (require zone-click targeting, future work)
     }
   }
 
@@ -144,166 +139,219 @@ export default function GameScreen() {
     if (grave.length > 0) openModal({ type: 'card-detail', card: grave[grave.length - 1] });
   }
 
-  // ── Phase button logic ─────────────────────────────────────
-  const canGoToBattle = isMyTurn && phase === 'main';
-  const canGoToEnd    = isMyTurn && phase === 'battle';
-  const canEndTurn    = isMyTurn && (phase === 'main' || phase === 'battle' || phase === 'end');
-
-  function advancePhase() {
-    if (game) { game.advancePhase(); resetSel(); setShowDirect(false); }
-  }
-  function endTurn() {
-    if (game) { game.endTurn(); resetSel(); setShowDirect(false); }
+  function getNextPhaseLabel() {
+    if (!isMyTurn) return '⏸';
+    if (phase === 'main')   return '⚔ BATTLE';
+    if (phase === 'battle') return '→ END';
+    return '⏭ NEXT TURN';
   }
 
-  // ── Newly drawn hand cards ─────────────────────────────────
+  function onNextPhase() {
+    if (!game || !isMyTurn) return;
+    if (phase === 'end') {
+      game.endTurn(); resetSel(); setShowDirect(false);
+    } else {
+      game.advancePhase(); resetSel(); setShowDirect(false);
+    }
+  }
+
   const handLen     = player.hand.length;
   const newDrawBase = handLen - pendingDraw;
 
   return (
     <div id="game-screen">
+
+      {/* Opponent hand — 3/4 above viewport */}
+      <div id="opp-hand-area">
+        {Array.from({ length: opp.hand.length }).map((_, i) => (
+          <div key={i} className="card face-down opp-hand-card">
+            <div className="card-back-pattern"><span className="back-label">A</span></div>
+          </div>
+        ))}
+      </div>
+
+      {/* Field: 3 columns */}
       <div id="field">
 
-        {/* Opponent info overlay */}
-        <div id="opp-info-overlay" className="info-overlay">
-          <span className="io-label">GEGNER</span>
-          <span className="io-lp" id="opp-lp">{opp.lp}</span>
-          <div className="io-bar-bg"><div id="opp-lp-bar" className="lp-bar opp-lp-bar" style={{ width: lpPct(opp.lp) }}></div></div>
-          <span className="io-deck">Deck: <span id="opp-deck-count">{opp.deck?.length ?? 0}</span> | Hand: <span id="opp-hand-count">{opp.hand.length}</span></span>
+        {/* Left panel */}
+        <div id="field-left">
+          <button id="btn-options" title="Optionen" onClick={() => {}}>⚙</button>
+          <div id="field-effect-slot">
+            <span className="field-effect-label">CURRENT<br />FIELD</span>
+          </div>
         </div>
 
-        {/* Opponent side */}
-        <div className="field-side opponent-side">
-          <div id="opp-spelltrap-zone" className="spell-trap-zone zone-row">
-            {[0,1,2,3,4].map(i => {
-              const fst = opp.field.spellTraps[i];
-              return (
-                <div key={i} className="zone-slot" data-zone={i}>
-                  {!fst && <div className="zone-label">Z/F</div>}
-                  {fst && <FieldSpellTrapComponent fst={fst} owner="opponent" zone={i} interactive={false} />}
-                </div>
-              );
-            })}
-          </div>
-          <div id="opponent-monster-zone" className="monster-zone zone-row">
-            {[0,1,2,3,4].map(i => {
-              const fc = opp.field.monsters[i];
-              const targetable = isOppMonsterTargetable(i);
-              return (
-                <div key={i} className={`zone-slot${targetable ? ' targetable' : ''}`} data-zone={i}>
-                  {!fc && <div className="zone-label">M</div>}
-                  {fc && (
-                    <FieldCardComponent
-                      fc={fc} owner="opponent" zone={i}
-                      selected={false} targetable={targetable}
-                      interactive={false} canAttack={false}
-                      onDefenderClick={() => {
-                        if (selMode === 'attack') onDefenderSelect(i);
-                        else if (selMode === 'trap-target') {
-                          if (game && sel.spellHandIndex !== null) {
-                            game.activateSpell('player', sel.spellHandIndex, fc);
-                            resetSel();
+        {/* Center: zone rows */}
+        <div id="field-center">
+
+          <div className="field-side opponent-side">
+            <div id="opp-spelltrap-zone" className="spell-trap-zone zone-row">
+              {[0,1,2,3,4].map(i => {
+                const fst = opp.field.spellTraps[i];
+                return (
+                  <div key={i} className="zone-slot" data-zone={i}>
+                    {!fst && <div className="zone-label">Z/F</div>}
+                    {fst && <FieldSpellTrapComponent fst={fst} owner="opponent" zone={i} interactive={false} />}
+                  </div>
+                );
+              })}
+            </div>
+            <div id="opponent-monster-zone" className="monster-zone zone-row">
+              {[0,1,2,3,4].map(i => {
+                const fc = opp.field.monsters[i];
+                const targetable = isOppMonsterTargetable(i);
+                return (
+                  <div key={i} className={`zone-slot${targetable ? ' targetable' : ''}`} data-zone={i}>
+                    {!fc && <div className="zone-label">M</div>}
+                    {fc && (
+                      <FieldCardComponent
+                        fc={fc} owner="opponent" zone={i}
+                        selected={false} targetable={targetable}
+                        interactive={false} canAttack={false}
+                        onDefenderClick={() => {
+                          if (selMode === 'attack') onDefenderSelect(i);
+                          else if (selMode === 'trap-target') {
+                            if (game && sel.spellHandIndex !== null) {
+                              game.activateSpell('player', sel.spellHandIndex, fc);
+                              resetSel();
+                            }
                           }
-                        }
-                      }}
-                      onDetail={() => openModal({ type: 'card-detail', card: fc.card, fc })}
-                    />
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Direct attack button */}
-        <button
-          id="btn-direct-attack"
-          className={showDirect && selMode === 'attack' ? '' : 'hidden'}
-          onClick={onDirectAttack}
-        >
-          💥 Direkt Angreifen
-        </button>
-
-        {/* Middle divider */}
-        <div id="field-middle">
-          <div className="grave-area" id="opp-grave-area">
-            <div id="opp-grave" className="graveyard-pile" title="Gegner Friedhof" onClick={() => onGraveClick('opponent')}>
-              <div className="grave-count" id="opp-grave-count">{opp.graveyard.length}</div>
-              <div className="grave-label">☠</div>
+                        }}
+                        onDetail={() => openModal({ type: 'card-detail', card: fc.card, fc })}
+                      />
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
-          <div className="fdiv-line"></div>
+
+          {/* Phase display — floating divider */}
           <div id="phase-display">
             <div id="phase-name">{PHASE_LABEL[phase] || phase.toUpperCase()}</div>
             <div className="turn-info">Runde <span id="turn-num">{gameState.turn}</span></div>
           </div>
-          <div className="fdiv-line"></div>
-          <div className="grave-area" id="player-grave-area">
-            <div id="player-grave" className="graveyard-pile" title="Spieler Friedhof" onClick={() => onGraveClick('player')}>
-              <div className="grave-count" id="player-grave-count">{player.graveyard.length}</div>
-              <div className="grave-label">☠</div>
+
+          {/* Direct attack button */}
+          <button
+            id="btn-direct-attack"
+            className={showDirect && selMode === 'attack' ? '' : 'hidden'}
+            onClick={onDirectAttack}
+          >
+            💥 Direkt Angreifen
+          </button>
+
+          <div className="field-side player-side">
+            <div id="player-monster-zone" className="monster-zone zone-row">
+              {[0,1,2,3,4].map(i => {
+                const fc        = player.field.monsters[i];
+                const selected  = selMode === 'attack' && sel.attackerZone === i;
+                const canAtk    = playerMonsterCanAttack(i);
+                const interact  = isPlayerMonsterInteractive(i);
+                const targetable = isPlayerMonsterSpellTarget(i);
+                return (
+                  <div key={i} className="zone-slot" data-zone={i}>
+                    {!fc && <div className="zone-label">M</div>}
+                    {fc && (
+                      <FieldCardComponent
+                        fc={fc} owner="player" zone={i}
+                        selected={selected} targetable={targetable}
+                        interactive={interact} canAttack={canAtk}
+                        onOwnClick={() => onOwnFieldCardClick(fc, i)}
+                        onAttackerSelect={() => onAttackerSelect(i)}
+                        onDefenderClick={() => onSpellTargetSelect(i)}
+                        onDetail={() => openModal({ type: 'card-detail', card: fc.card, fc })}
+                      />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            <div id="player-spelltrap-zone" className="spell-trap-zone zone-row">
+              {[0,1,2,3,4].map(i => {
+                const fst = player.field.spellTraps[i];
+                const interact = isPlayerSpellTrapInteractive(i);
+                return (
+                  <div key={i} className="zone-slot" data-zone={i}>
+                    {!fst && <div className="zone-label">Z/F</div>}
+                    {fst && (
+                      <FieldSpellTrapComponent
+                        fst={fst} owner="player" zone={i} interactive={interact}
+                        onClick={() => onFieldSpellTrapClick(i, fst)}
+                        onDetail={() => openModal({ type: 'card-detail', card: fst.card })}
+                      />
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
+
+          {/* Action hint overlay */}
+          {sel.hint && (
+            <div id="action-hint" role="status" aria-live="polite">{sel.hint}</div>
+          )}
         </div>
 
-        {/* Player side */}
-        <div className="field-side player-side">
-          <div id="player-monster-zone" className="monster-zone zone-row">
-            {[0,1,2,3,4].map(i => {
-              const fc        = player.field.monsters[i];
-              const selected  = selMode === 'attack' && sel.attackerZone === i;
-              const canAtk    = playerMonsterCanAttack(i);
-              const interact  = isPlayerMonsterInteractive(i);
-              const targetable = isPlayerMonsterSpellTarget(i);
-              return (
-                <div key={i} className="zone-slot" data-zone={i}>
-                  {!fc && <div className="zone-label">M</div>}
-                  {fc && (
-                    <FieldCardComponent
-                      fc={fc} owner="player" zone={i}
-                      selected={selected} targetable={targetable}
-                      interactive={interact} canAttack={canAtk}
-                      onOwnClick={() => onOwnFieldCardClick(fc, i)}
-                      onAttackerSelect={() => onAttackerSelect(i)}
-                      onDefenderClick={() => onSpellTargetSelect(i)}
-                      onDetail={() => openModal({ type: 'card-detail', card: fc.card, fc })}
-                    />
-                  )}
-                </div>
-              );
-            })}
+        {/* Right panel */}
+        <div id="field-right">
+          <div
+            id="opp-grave"
+            className="grave-icon opp-grave-icon"
+            title="Gegner Friedhof"
+            onClick={() => onGraveClick('opponent')}
+          >
+            <span className="grave-icon-sym">🪦</span>
+            <span className="grave-icon-count">{opp.graveyard.length}</span>
           </div>
-          <div id="player-spelltrap-zone" className="spell-trap-zone zone-row">
-            {[0,1,2,3,4].map(i => {
-              const fst = player.field.spellTraps[i];
-              const interact = isPlayerSpellTrapInteractive(i);
-              return (
-                <div key={i} className="zone-slot" data-zone={i}>
-                  {!fst && <div className="zone-label">Z/F</div>}
-                  {fst && (
-                    <FieldSpellTrapComponent
-                      fst={fst} owner="player" zone={i} interactive={interact}
-                      onClick={() => onFieldSpellTrapClick(i, fst)}
-                      onDetail={() => openModal({ type: 'card-detail', card: fst.card })}
-                    />
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
 
-        {/* Player info overlay */}
-        <div id="player-info-overlay" className="info-overlay">
-          <span className="io-label">SPIELER</span>
-          <span className="io-lp" id="player-lp">{player.lp}</span>
-          <div className="io-bar-bg"><div id="player-lp-bar" className="lp-bar" style={{ width: lpPct(player.lp) }}></div></div>
-          <span className="io-deck">Deck: <span id="player-deck-count">{player.deck?.length ?? 0}</span></span>
+          <button
+            id="btn-next-phase"
+            className={`next-phase-btn phase-${phase}${!isMyTurn ? ' waiting' : ''}`}
+            disabled={!isMyTurn}
+            onClick={onNextPhase}
+            aria-label="Nächste Phase (B/E/T)"
+          >
+            {getNextPhaseLabel()}
+          </button>
+
+          <div id="lp-panel">
+            <div className="lp-row opp-lp-row">
+              <div className="lp-top-row">
+                <span className="lp-who">COM</span>
+                <span className="lp-value" id="opp-lp">{opp.lp}</span>
+                <span className="lp-deck" id="opp-deck-count">{opp.deck?.length ?? 0}</span>
+              </div>
+              <div className="io-bar-bg">
+                <div id="opp-lp-bar" className="lp-bar opp-lp-bar" style={{ width: lpPct(opp.lp) }}></div>
+              </div>
+            </div>
+            <div className="lp-row player-lp-row">
+              <div className="lp-top-row">
+                <span className="lp-who">YOU</span>
+                <span className="lp-value" id="player-lp">{player.lp}</span>
+                <span className="lp-deck" id="player-deck-count">{player.deck?.length ?? 0}</span>
+              </div>
+              <div className="io-bar-bg">
+                <div id="player-lp-bar" className="lp-bar" style={{ width: lpPct(player.lp) }}></div>
+              </div>
+            </div>
+          </div>
+
+          <div
+            id="player-grave"
+            className="grave-icon player-grave-icon"
+            title="Spieler Friedhof"
+            onClick={() => onGraveClick('player')}
+          >
+            <span className="grave-icon-sym">🪦</span>
+            <span className="grave-icon-count">{player.graveyard.length}</span>
+          </div>
         </div>
 
       </div>{/* end #field */}
 
-      {/* Hand */}
+      {/* Player hand — 1/4 below viewport */}
       <div id="hand-area">
         <div id="player-hand">
           {player.hand.map((card: any, i: number) => {
@@ -327,48 +375,8 @@ export default function GameScreen() {
         </div>
       </div>
 
-      {/* Action bar */}
-      <div id="action-bar" role="toolbar" aria-label="Spielsteuerung">
-        <div className="flex gap-1.5 flex-shrink-0">
-          <button
-            id="btn-main-to-battle"
-            className="phase-btn"
-            disabled={!canGoToBattle}
-            onClick={advancePhase}
-            aria-label="Zur Kampfphase wechseln (B)"
-          >⚔ Kampfphase</button>
-          <button
-            id="btn-battle-to-end"
-            className="phase-btn"
-            disabled={!canGoToEnd}
-            onClick={advancePhase}
-            aria-label="Zur Endphase wechseln (E)"
-          >→ Endphase</button>
-          <button
-            id="btn-end-turn"
-            className="phase-btn btn-end-turn"
-            disabled={!canEndTurn}
-            onClick={endTurn}
-            aria-label="Zug beenden (T)"
-          >⏭ Zug Beenden</button>
-        </div>
-        <div id="action-hint" role="status" aria-live="polite">{sel.hint}</div>
-        <button
-          id="btn-card-list-game"
-          className="btn-small"
-          aria-label="Alle Karten anzeigen"
-          onClick={() => openModal({ type: 'card-list' })}
-        >📖 Karten</button>
-        <button
-          id="btn-download-log"
-          className="btn-small btn-log"
-          aria-label="Debug-Log herunterladen"
-          onClick={() => (window as any).AetherialClash?.downloadLog?.('manuell')}
-        >💾 Log</button>
-      </div>
-
-      {/* Battle log */}
-      <div id="battle-log">
+      {/* Battle log — hidden, accessible via options later */}
+      <div id="battle-log" style={{ display: 'none' }}>
         <div className="log-header">📜 Protokoll</div>
         <div id="log-entries">
           {logEntries.map((entry, i) => (

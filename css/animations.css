@@ -39,6 +39,10 @@
   0%,100% { box-shadow: 0 0 10px rgba(255,60,60,0.5); }
   50%      { box-shadow: 0 0 22px rgba(255,60,60,1); }
 }
+@keyframes nextPhasePulse {
+  0%,100% { filter: brightness(1); }
+  50%      { filter: brightness(1.25); }
+}
 @keyframes logFade { from{opacity:0;transform:translateY(-4px)} to{opacity:1;transform:none} }
 
 /* ── Hand cards ───────────────────────────────────────────── */
