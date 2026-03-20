@@ -1,8 +1,9 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useScreen }      from '../contexts/ScreenContext.js';
 import { useProgression } from '../contexts/ProgressionContext.js';
 import { useModal }        from '../contexts/ModalContext.js';
-import { CARD_DB, RARITY_COLOR, RARITY_NAME, RACE_NAME } from '../../cards.js';
+import { CARD_DB, RARITY_COLOR } from '../../cards.js';
 import { Progression }     from '../../progression.js';
 import { Card }            from '../components/Card.js';
 import { attachHover }     from '../components/hoverApi.js';
@@ -14,16 +15,8 @@ const MAX_COPIES = 3;
 
 type ViewMode = 'large' | 'small' | 'table';
 
-const TYPE_FILTERS = [
-  { key: 'all',    label: 'Alle' },
-  { key: 'normal', label: 'Normal' },
-  { key: 'effect', label: 'Effekt' },
-  { key: 'spell',  label: 'Zauber' },
-  { key: 'trap',   label: 'Falle' },
-];
-
 const RACE_FILTERS = [
-  { key: 'all',     label: 'Alle' },
+  { key: 'all',     label: '🌐' },
   { key: 'feuer',   label: '🔥' },
   { key: 'drache',  label: '🐲' },
   { key: 'flug',    label: '🦅' },
@@ -36,14 +29,11 @@ const RACE_FILTERS = [
   { key: 'wasser',  label: '🌊' },
 ];
 
-const TYPE_LABEL: Record<string, string> = {
-  normal: 'Normal', effect: 'Effekt', fusion: 'Fusion', spell: 'Zauber', trap: 'Falle',
-};
-
 export default function DeckbuilderScreen() {
   const { navigateTo }                        = useScreen();
   const { collection, currentDeck, setCurrentDeck, loadDeck } = useProgression();
   const { openModal }                         = useModal();
+  const { t } = useTranslation();
   const [typeFilter, setTypeFilter]           = useState('all');
   const [raceFilter, setRaceFilter]           = useState('all');
   const [rarityFilter, setRarityFilter]       = useState('all');
@@ -52,6 +42,22 @@ export default function DeckbuilderScreen() {
   const [panelExpanded, setPanelExpanded]     = useState(false);
   const [toast, setToast]                     = useState(false);
   const [seenCards, setSeenCards]             = useState<Set<string>>(() => Progression.getSeenCards());
+
+  const TYPE_FILTERS = [
+    { key: 'all',    label: t('deckbuilder.type_all') },
+    { key: 'normal', label: t('deckbuilder.type_normal') },
+    { key: 'effect', label: t('deckbuilder.type_effect') },
+    { key: 'spell',  label: t('deckbuilder.type_spell') },
+    { key: 'trap',   label: t('deckbuilder.type_trap') },
+  ];
+
+  const TYPE_LABEL: Record<string, string> = {
+    normal: t('deckbuilder.type_label_normal'),
+    effect: t('deckbuilder.type_label_effect'),
+    fusion: t('deckbuilder.type_label_fusion'),
+    spell:  t('deckbuilder.type_label_spell'),
+    trap:   t('deckbuilder.type_label_trap'),
+  };
 
   const { ownedIds, collectionCount } = useMemo(() => {
     const ownedIds = collection.length > 0 ? new Set(collection.map(e => e.id)) : null;
@@ -118,8 +124,8 @@ export default function DeckbuilderScreen() {
   return (
     <div className={styles.screen}>
       <div className={styles.header}>
-        <div className={styles.title}>🃏 Deckbuilder</div>
-        <div className={styles.count}>{currentDeck.length}/{MAX_DECK} Karten</div>
+        <div className={styles.title}>{t('deckbuilder.title')}</div>
+        <div className={styles.count}>{t('deckbuilder.cards_count', { current: currentDeck.length, max: MAX_DECK })}</div>
         <div className="ml-auto flex gap-2">
           <button
             id="btn-db-save"
@@ -127,8 +133,8 @@ export default function DeckbuilderScreen() {
             disabled={!deckFull}
             style={{ opacity: deckFull ? 1 : 0.4, cursor: deckFull ? 'pointer' : 'not-allowed' }}
             onClick={saveDeck}
-          >💾 Deck Speichern</button>
-          <button id="btn-db-back" className="btn-secondary" onClick={() => navigateTo('title')}>← Zurück</button>
+          >{t('deckbuilder.save_btn')}</button>
+          <button id="btn-db-back" className="btn-secondary" onClick={() => navigateTo('title')}>{t('deckbuilder.back')}</button>
         </div>
       </div>
 
@@ -139,7 +145,7 @@ export default function DeckbuilderScreen() {
             id="db-panel-title-btn"
             onClick={() => setPanelExpanded(e => !e)}
           >
-            Aktuelles Deck <span className={styles.panelArrow}>{panelExpanded ? '❮' : '❯'}</span>
+            {t('deckbuilder.current_deck')} <span className={styles.panelArrow}>{panelExpanded ? '❮' : '❯'}</span>
           </div>
           <div className={panelExpanded ? styles.deckListExpanded : styles.deckList}>
             {panelExpanded ? (
@@ -173,7 +179,7 @@ export default function DeckbuilderScreen() {
                     </div>
                     <span className={styles.deckRowName}>{card.name}</span>
                     <span className={styles.deckRowCount}>×{count}</span>
-                    <span className={styles.deckRowRm} title="Entfernen">✕</span>
+                    <span className={styles.deckRowRm} title={t('deckbuilder.remove_hint')}>✕</span>
                   </div>
                 );
               })
@@ -208,7 +214,7 @@ export default function DeckbuilderScreen() {
                 value={rarityFilter}
                 onChange={e => setRarityFilter(e.target.value)}
               >
-                <option value="all">Alle Seltenheiten</option>
+                <option value="all">{t('deckbuilder.rarity_all')}</option>
                 <option value="common">Common</option>
                 <option value="uncommon">Uncommon</option>
                 <option value="rare">Rare</option>
@@ -218,7 +224,7 @@ export default function DeckbuilderScreen() {
               <input
                 className={styles.nameSearch}
                 type="text"
-                placeholder="Name suchen…"
+                placeholder={t('deckbuilder.name_search')}
                 value={nameSearch}
                 onChange={e => setNameSearch(e.target.value)}
               />
@@ -226,17 +232,17 @@ export default function DeckbuilderScreen() {
             <div className={styles.viewToggle}>
               <button
                 className={`${styles.viewBtn}${viewMode === 'large' ? ` ${styles.active}` : ''}`}
-                title="Groß"
+                title={t('deckbuilder.view_large')}
                 onClick={() => setViewMode('large')}
               >⊞</button>
               <button
                 className={`${styles.viewBtn}${viewMode === 'small' ? ` ${styles.active}` : ''}`}
-                title="Klein"
+                title={t('deckbuilder.view_small')}
                 onClick={() => setViewMode('small')}
               >⊟</button>
               <button
                 className={`${styles.viewBtn}${viewMode === 'table' ? ` ${styles.active}` : ''}`}
-                title="Tabelle"
+                title={t('deckbuilder.view_table')}
                 onClick={() => setViewMode('table')}
               >☰</button>
             </div>
@@ -274,13 +280,13 @@ export default function DeckbuilderScreen() {
               <table className={styles.table}>
                 <thead>
                   <tr>
-                    <th>Nr.</th>
-                    <th>Rarity</th>
-                    <th>Name</th>
-                    <th>ATK / DEF</th>
-                    <th>Typ / Rasse</th>
-                    <th>Sammlung</th>
-                    <th>Im Deck</th>
+                    <th>{t('deckbuilder.table_nr')}</th>
+                    <th>{t('deckbuilder.table_rarity')}</th>
+                    <th>{t('deckbuilder.table_name')}</th>
+                    <th>{t('deckbuilder.table_atkdef')}</th>
+                    <th>{t('deckbuilder.table_type_race')}</th>
+                    <th>{t('deckbuilder.table_collection')}</th>
+                    <th>{t('deckbuilder.table_in_deck')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -291,7 +297,7 @@ export default function DeckbuilderScreen() {
                     const ownedCount = collectionCount[card.id] || 0;
                     const rarColor   = (RARITY_COLOR as any)[(card as any).rarity] || '#aaa';
                     const typeLbl    = TYPE_LABEL[card.type] || card.type;
-                    const raceLbl    = (RACE_NAME as any)[(card as any).race] || '';
+                    const raceLbl    = (card as any).race ? t(`cards.race_${(card as any).race}`) : '';
                     const typeRace   = raceLbl ? `${typeLbl} / ${raceLbl}` : typeLbl;
                     return (
                       <tr
@@ -306,7 +312,7 @@ export default function DeckbuilderScreen() {
                         </td>
                         <td>
                           <span style={{ color: rarColor }}>
-                            {(RARITY_NAME as any)[(card as any).rarity] || '—'}
+                            {(card as any).rarity ? (card as any).rarity.replace('_', ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()) : '—'}
                           </span>
                         </td>
                         <td>{card.name}</td>
@@ -324,7 +330,7 @@ export default function DeckbuilderScreen() {
         </div>
       </div>
 
-      {toast && <div className={styles.saveToast}>✓ Deck gespeichert!</div>}
+      {toast && <div className={styles.saveToast}>{t('deckbuilder.saved_toast')}</div>}
     </div>
   );
 }

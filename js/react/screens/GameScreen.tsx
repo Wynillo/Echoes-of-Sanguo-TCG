@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useGame }      from '../contexts/GameContext.js';
 import { useModal }     from '../contexts/ModalContext.js';
 import { useSelection } from '../contexts/SelectionContext.js';
@@ -11,16 +12,18 @@ import { checkFusion }           from '../../cards.js';
 
 const FIELD_ZONES = [0, 1, 2, 3, 4] as const;
 
-const PHASE_LABEL: Record<string, string> = {
-  draw: 'ZIEHPHASE', standby: 'BEREITSCHAFT', main: 'HAUPTPHASE',
-  battle: 'KAMPFPHASE', end: 'ENDPHASE',
-};
 
 export default function GameScreen() {
   const { gameState, gameRef, logEntries, pendingDraw, clearPendingDraw } = useGame();
   const { openModal } = useModal();
   const { sel, setSel, resetSel } = useSelection();
+  const { t } = useTranslation();
   const [showDirect, setShowDirect] = useState(false);
+
+  const PHASE_LABEL: Record<string, string> = {
+    draw: t('game.phase_draw'), standby: t('game.phase_standby'), main: t('game.phase_main'),
+    battle: t('game.phase_battle'), end: t('game.phase_end'),
+  };
 
   const hideDirect = useCallback(() => setShowDirect(false), []);
 
@@ -105,7 +108,7 @@ export default function GameScreen() {
     if (!fc || fc.hasAttacked || fc.position !== 'atk' || fc.summonedThisTurn) return;
     resetSel();
     const oppHasMonsters = opp.field.monsters.some((m: any) => m !== null);
-    setSel({ mode: 'attack', attackerZone: zone, hint: `${fc.card.name} ausgewählt.` });
+    setSel({ mode: 'attack', attackerZone: zone, hint: t('game.hint_selected', { name: fc.card.name }) });
     setShowDirect(!oppHasMonsters || fc.canDirectAttack);
   }
 
@@ -146,10 +149,10 @@ export default function GameScreen() {
   }
 
   function getNextPhaseLabel() {
-    if (!isMyTurn) return '⏸';
-    if (phase === 'main')   return '⚔ BATTLE';
-    if (phase === 'battle') return '→ END';
-    return '⏭ NEXT TURN';
+    if (!isMyTurn) return t('game.btn_wait');
+    if (phase === 'main')   return t('game.btn_battle');
+    if (phase === 'battle') return t('game.btn_end');
+    return t('game.btn_next_turn');
   }
 
   function onNextPhase() {
@@ -240,7 +243,7 @@ export default function GameScreen() {
           {/* Phase display — floating divider */}
           <div id="phase-display">
             <div id="phase-name">{PHASE_LABEL[phase] || phase.toUpperCase()}</div>
-            <div className="turn-info">Runde <span id="turn-num">{gameState.turn}</span></div>
+            <div className="turn-info">{t('game.round')} <span id="turn-num">{gameState.turn}</span></div>
           </div>
 
           {/* Direct attack button */}
@@ -249,7 +252,7 @@ export default function GameScreen() {
             className={showDirect && selMode === 'attack' ? '' : 'hidden'}
             onClick={onDirectAttack}
           >
-            💥 Direkt Angreifen
+            {t('game.btn_direct_attack')}
           </button>
 
           <div className="field-side player-side">
@@ -309,7 +312,7 @@ export default function GameScreen() {
           <div
             id="opp-grave"
             className="grave-icon opp-grave-icon"
-            title="Gegner Friedhof"
+            title={t('game.grave_opp')}
             onClick={() => onGraveClick('opponent')}
           >
             <span className="grave-icon-sym">🪦</span>
@@ -323,7 +326,7 @@ export default function GameScreen() {
               className={`phase-${phase}${!isMyTurn ? ' waiting' : ''}`}
               disabled={!isMyTurn}
               onClick={onNextPhase}
-              aria-label="Nächste Phase (B/E/T)"
+              aria-label={t('game.aria_next_phase')}
             >
               {getNextPhaseLabel()}
             </button>
@@ -355,7 +358,7 @@ export default function GameScreen() {
           <div
             id="player-grave"
             className="grave-icon player-grave-icon"
-            title="Spieler Friedhof"
+            title={t('game.grave_player')}
             onClick={() => onGraveClick('player')}
           >
             <span className="grave-icon-sym">🪦</span>

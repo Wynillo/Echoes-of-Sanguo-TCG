@@ -1,4 +1,5 @@
 import { useState }      from 'react';
+import { useTranslation } from 'react-i18next';
 import { useScreen }      from '../contexts/ScreenContext.js';
 import { useProgression } from '../contexts/ProgressionContext.js';
 import { useGame }        from '../contexts/GameContext.js';
@@ -23,6 +24,7 @@ export default function OpponentScreen() {
   const { opponents }   = useProgression();
   const { startGame }   = useGame();
   const [hovered, setHovered] = useState<OpponentConfig | null>(null);
+  const { t } = useTranslation();
 
   function selectOpponent(cfg: OpponentConfig) {
     startGame(cfg);
@@ -32,9 +34,9 @@ export default function OpponentScreen() {
   return (
     <div className={styles.screen}>
       <div className={styles.header}>
-        <h2 className={styles.title}>FREIES DUELL</h2>
-        <p className={styles.subtitle}>Wähle deinen Gegner</p>
-        <button className={`btn-secondary ${styles.backBtn}`} onClick={() => navigateTo('title')}>← Hauptmenü</button>
+        <h2 className={styles.title}>{t('opponent.headline')}</h2>
+        <p className={styles.subtitle}>{t('opponent.subtitle')}</p>
+        <button className={`btn-secondary ${styles.backBtn}`} onClick={() => navigateTo('title')}>{t('opponent.back')}</button>
       </div>
 
       <div className={styles.grid}>

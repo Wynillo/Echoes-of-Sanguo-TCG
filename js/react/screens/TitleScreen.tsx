@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useScreen }      from '../contexts/ScreenContext.js';
 import { useProgression } from '../contexts/ProgressionContext.js';
 import { useModal }       from '../contexts/ModalContext.js';
@@ -8,13 +9,12 @@ export default function TitleScreen() {
   const { navigateTo } = useScreen();
   const { refresh }   = useProgression();
   const { openModal } = useModal();
+  const { t } = useTranslation();
   const hasSave = !Progression.isFirstLaunch();
 
   function handleNewGame() {
     if (hasSave) {
-      const ok = window.confirm(
-        'Neues Spiel starten?\nDein Fortschritt bleibt bis zum nächsten Speicherpunkt erhalten.'
-      );
+      const ok = window.confirm(t('title.confirm_new_game'));
       if (!ok) return;
     }
     Progression.backupToSession();
@@ -35,14 +35,14 @@ export default function TitleScreen() {
       <div className={styles.content}>
         <div className="title-rune">✦</div>
         <h1 className={styles.gameTitle}>AETHERIAL<br />CLASH</h1>
-        <p className={styles.subtitle}>Das Kartenduel der Elemente</p>
+        <p className={styles.subtitle}>{t('title.subtitle')}</p>
         <div className={styles.menu}>
-          <button className="btn-primary" onClick={handleNewGame}>⚔ Neues Spiel</button>
+          <button className="btn-primary" onClick={handleNewGame}>{t('title.new_game')}</button>
           {hasSave && (
-            <button className="btn-secondary" onClick={handleLoadGame}>📂 Spiel Laden</button>
+            <button className="btn-secondary" onClick={handleLoadGame}>{t('title.load_game')}</button>
           )}
-          <button className="btn-secondary" onClick={() => openModal({ type: 'main-options' })}>⚙ Optionen</button>
-          <button className="btn-secondary" onClick={() => window.close()}>✕ Spiel beenden</button>
+          <button className="btn-secondary" onClick={() => openModal({ type: 'main-options' })}>{t('title.options')}</button>
+          <button className="btn-secondary" onClick={() => window.close()}>{t('title.quit')}</button>
         </div>
       </div>
     </div>

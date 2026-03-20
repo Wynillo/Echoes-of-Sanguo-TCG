@@ -1,4 +1,5 @@
 import { useState }       from 'react';
+import { useTranslation }  from 'react-i18next';
 import { useScreen }      from '../contexts/ScreenContext.js';
 import { useProgression } from '../contexts/ProgressionContext.js';
 import { useModal }       from '../contexts/ModalContext.js';
@@ -9,12 +10,13 @@ export default function SavePointScreen() {
   const { navigateTo }     = useScreen();
   const { coins, refresh } = useProgression();
   const { openModal }      = useModal();
+  const { t } = useTranslation();
   const [savedMsg, setSavedMsg] = useState(false);
   const hasBackup = Progression.hasBackup();
 
   function handleSave() {
     if (hasBackup) {
-      const ok = window.confirm('Das alte Spiel wird überschrieben. Fortfahren?');
+      const ok = window.confirm(t('save.confirm_overwrite'));
       if (!ok) return;
       Progression.clearBackup();
     }
@@ -35,29 +37,26 @@ export default function SavePointScreen() {
       <div className="title-bg"></div>
       <div className={styles.content}>
         <div className="title-rune">★</div>
-        <h2 className={styles.title}>SPEICHERPUNKT</h2>
+        <h2 className={styles.title}>{t('save.headline')}</h2>
         <div className={styles.coinsBar}>
           <span className="coins-icon">◈</span>
-          <span className={styles.coinsValue}>{coins.toLocaleString('de-DE')}</span>
-          <span className="coins-label">Äther-Münzen</span>
+          <span className={styles.coinsValue}>{coins.toLocaleString()}</span>
+          <span className="coins-label">{t('common.coins')}</span>
         </div>
         {hasBackup && (
-          <p className={styles.backupWarning}>
-            Neues Spiel aktiv — speichere um den alten Stand zu überschreiben,
-            oder kehre zurück um abzubrechen.
-          </p>
+          <p className={styles.backupWarning}>{t('save.backup_warning')}</p>
         )}
         <div className={styles.menu}>
           <button className="btn-primary" onClick={handleSave}>
-            {savedMsg ? '✓ Gespeichert!' : '💾 Speichern'}
+            {savedMsg ? t('save.btn_saved') : t('save.btn_save')}
           </button>
-          <button className="btn-secondary" onClick={() => navigateTo('opponent')}>📖 Story</button>
-          <button className="btn-secondary" onClick={() => navigateTo('opponent')}>⚔ Freies Duell Beginnen</button>
-          <button className="btn-secondary" onClick={() => navigateTo('shop')}>🛒 Shop</button>
-          <button className="btn-secondary" onClick={() => navigateTo('collection')}>📚 Sammlung</button>
-          <button className="btn-secondary" onClick={() => navigateTo('deckbuilder')}>🃏 Deckbuilder</button>
-          <button className="btn-secondary" onClick={() => openModal({ type: 'card-list' })}>📋 Kartenliste</button>
-          <button className="btn-secondary" onClick={handleToMainMenu}>🏠 Zum Hauptmenü</button>
+          <button className="btn-secondary" onClick={() => navigateTo('opponent')}>{t('save.btn_story')}</button>
+          <button className="btn-secondary" onClick={() => navigateTo('opponent')}>{t('save.btn_duel')}</button>
+          <button className="btn-secondary" onClick={() => navigateTo('shop')}>{t('save.btn_shop')}</button>
+          <button className="btn-secondary" onClick={() => navigateTo('collection')}>{t('save.btn_collection')}</button>
+          <button className="btn-secondary" onClick={() => navigateTo('deckbuilder')}>{t('save.btn_deckbuilder')}</button>
+          <button className="btn-secondary" onClick={() => openModal({ type: 'card-list' })}>{t('save.btn_cardlist')}</button>
+          <button className="btn-secondary" onClick={handleToMainMenu}>{t('save.btn_mainmenu')}</button>
         </div>
       </div>
     </div>

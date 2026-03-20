@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useScreen }   from '../contexts/ScreenContext.js';
 import { RARITY_COLOR } from '../../cards.js';
 import type { CardData }          from '../../types.js';
@@ -15,13 +16,22 @@ export function setPackOpeningCards(cards: CardData[], preOpen: CollectionEntry[
 
 export default function PackOpeningScreen() {
   const { navigateTo } = useScreen();
+  const { t } = useTranslation();
 
   const ownedBefore = new Set(_preOpen.filter(e => e.count > 0).map(e => e.id));
+
+  function getTypeLabel(type: string) {
+    if (type === 'normal') return t('pack_opening.type_normal');
+    if (type === 'effect') return t('pack_opening.type_effect');
+    if (type === 'fusion') return t('pack_opening.type_fusion');
+    if (type === 'spell')  return t('pack_opening.type_spell');
+    return t('pack_opening.type_trap');
+  }
 
   return (
     <div className={styles.screen}>
       <div className={styles.header}>
-        <h2 className={styles.title}>✦ Pack geöffnet!</h2>
+        <h2 className={styles.title}>{t('pack_opening.title')}</h2>
       </div>
 
       <div className={styles.grid}>
@@ -38,7 +48,7 @@ export default function PackOpeningScreen() {
                 className={`${styles.cardInner} card ${card.type}-card attr-${(card as any).attribute || 'spell'}`}
                 style={{ '--rarity-color': rarColor } as React.CSSProperties}
               >
-                {isNew && <div className={styles.newBadge}>NEU!</div>}
+                {isNew && <div className={styles.newBadge}>{t('pack_opening.new_badge')}</div>}
                 <div className={styles.rarityBar} style={{ background: rarColor }}></div>
                 <div className="card-header">
                   <span className="card-name">{card.name}</span>
@@ -47,13 +57,7 @@ export default function PackOpeningScreen() {
                   </span>
                 </div>
                 <div className="card-body">
-                  <div className="card-type-line">
-                    {card.type === 'normal' ? 'Normal'
-                      : card.type === 'effect' ? 'Effekt'
-                      : card.type === 'fusion' ? 'Fusion'
-                      : card.type === 'spell'  ? 'Zauber'
-                      : 'Falle'}
-                  </div>
+                  <div className="card-type-line">{getTypeLabel(card.type)}</div>
                   <div className="card-desc">{card.description || ''}</div>
                 </div>
                 {card.atk !== undefined && (
@@ -69,8 +73,8 @@ export default function PackOpeningScreen() {
       </div>
 
       <div className={styles.buttons}>
-        <button className="btn-secondary" onClick={() => navigateTo('shop')}>← Zurück zum Shop</button>
-        <button className="btn-primary"   onClick={() => navigateTo('title')}>🏠 Hauptmenü</button>
+        <button className="btn-secondary" onClick={() => navigateTo('shop')}>{t('pack_opening.back_shop')}</button>
+        <button className="btn-primary"   onClick={() => navigateTo('title')}>{t('pack_opening.home')}</button>
       </div>
     </div>
   );
