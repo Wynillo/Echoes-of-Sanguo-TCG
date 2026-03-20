@@ -5,6 +5,7 @@ import { TrapPromptModal }  from './TrapPromptModal.js';
 import { GraveSelectModal } from './GraveSelectModal.js';
 import { CardListModal }    from './CardListModal.js';
 import { ResultModal }      from './ResultModal.js';
+import { OptionsModal }     from './OptionsModal.js';
 
 export function ModalOverlay() {
   const { modal, closeModal } = useModal();
@@ -25,6 +26,7 @@ export function ModalOverlay() {
       {modal.type === 'grave-select' && <GraveSelectModal modal={modal} />}
       {modal.type === 'card-list'    && <CardListModal />}
       {modal.type === 'result'       && <ResultModal      modal={modal} />}
+      {modal.type === 'main-options' && <OptionsModal />}
     </div>
   );
 }

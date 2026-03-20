@@ -16,6 +16,7 @@ export const Progression = (() => {
     coins:          'ac_aether_coins',
     opponents:      'ac_opponents',
     version:        'ac_save_version',
+    settings:       'ac_settings',
   };
 
   const SAVE_VERSION   = 1;   // increment when save format changes incompatibly
@@ -202,6 +203,18 @@ export const Progression = (() => {
     return !!(ops[id] && ops[id].unlocked);
   }
 
+  // ── Einstellungen ────────────────────────────────────────
+
+  interface Settings { lang: string; volMaster: number; volMusic: number; volSfx: number; }
+
+  function getSettings(): Settings {
+    return _load(KEYS.settings, { lang: 'de', volMaster: 50, volMusic: 50, volSfx: 50 });
+  }
+
+  function saveSettings(s: Settings): void {
+    _save(KEYS.settings, s);
+  }
+
   // ── Debug / Reset ────────────────────────────────────────
 
   /** Setzt alle Progression-Daten zurück (nur für Debug) */
@@ -264,6 +277,9 @@ export const Progression = (() => {
     getOpponents,
     recordDuelResult,
     isOpponentUnlocked,
+    // Einstellungen
+    getSettings,
+    saveSettings,
     // Debug
     resetAll,
     // Soft-Reset

@@ -1,10 +1,12 @@
 import { useScreen }      from '../contexts/ScreenContext.js';
 import { useProgression } from '../contexts/ProgressionContext.js';
+import { useModal }       from '../contexts/ModalContext.js';
 import { Progression }    from '../../progression.js';
 
 export default function TitleScreen() {
   const { setScreen } = useScreen();
   const { refresh }   = useProgression();
+  const { openModal } = useModal();
   const hasSave = !Progression.isFirstLaunch();
 
   function handleNewGame() {
@@ -38,7 +40,7 @@ export default function TitleScreen() {
           {hasSave && (
             <button className="btn-secondary" onClick={handleLoadGame}>📂 Spiel Laden</button>
           )}
-          <button className="btn-secondary" onClick={() => {}}>⚙ Optionen</button>
+          <button className="btn-secondary" onClick={() => openModal({ type: 'main-options' })}>⚙ Optionen</button>
           <button className="btn-secondary" onClick={() => window.close()}>✕ Spiel beenden</button>
         </div>
       </div>

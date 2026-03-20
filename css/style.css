@@ -1065,6 +1065,41 @@ button { cursor: pointer; border: none; font-family: inherit; transition: all 0.
   #player-hand .hand-card:last-child { margin-right: 0; }
 }
 
+/* ═══════════════════════════════════════════════════════════
+   OPTIONS MODAL
+   ═══════════════════════════════════════════════════════════ */
+#options-modal { min-width: 320px; max-width: 420px; }
+#options-modal h2 { margin-bottom: 20px; }
+
+.options-row {
+  display: flex; flex-direction: column;
+  gap: 6px; margin-bottom: 16px;
+}
+.options-row label {
+  display: flex; justify-content: space-between;
+  font-size: 13px; color: var(--text);
+}
+.options-row label span { color: var(--gold); font-weight: bold; }
+
+.options-row select {
+  background: rgba(20,35,80,0.9); color: var(--text);
+  border: 1px solid var(--border); border-radius: 6px;
+  padding: 7px 10px; font-family: inherit; font-size: 13px;
+  cursor: pointer;
+}
+.options-row select:focus { outline: none; border-color: var(--border-glow); }
+
+.options-row input[type="range"] {
+  width: 100%; accent-color: var(--gold); cursor: pointer;
+  height: 4px;
+}
+
+.options-buttons {
+  display: flex; gap: 10px; justify-content: flex-end;
+  margin-top: 20px; padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
 /* ── Landscape Smartphone (niedrige Höhe) ────────────────── */
 @media (max-height: 450px) {
   .zone-row { gap: 2px; }
