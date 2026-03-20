@@ -9,12 +9,8 @@
 //
 import { CARD_DB, TYPE, ATTR, RACE, RARITY, FUSION_RECIPES, OPPONENT_CONFIGS, OPPONENT_DECK_IDS, PLAYER_DECK_IDS, makeDeck, checkFusion } from './cards.js';
 import { Progression } from './progression.js';
-import type { Owner, Phase, Position, CardData, CardEffect, CardEffectBlock, GameState, PlayerState, UICallbacks, OpponentConfig, VsAttrBonus } from './types.js';
-
-/** Type guard: returns true if the effect uses the legacy apply() pattern */
-function isLegacyEffect(e: CardEffect | CardEffectBlock): e is CardEffect {
-  return 'apply' in e || !('actions' in e);
-}
+import { executeEffectBlock, extractPassiveFlags } from './effect-registry.js';
+import type { Owner, Phase, Position, CardData, CardEffectBlock, EffectContext, GameState, PlayerState, UICallbacks, OpponentConfig, VsAttrBonus } from './types.js';
 
 export const AetherialClash = {
   debug: false,
@@ -137,12 +133,13 @@ export class FieldCard {
     this.permDEFBonus = 0;
     this.phoenixRevived = false;
     // passive flags from effect
-    if(card.effect && card.effect.trigger==='passive' && isLegacyEffect(card.effect)){
-      this.piercing        = card.effect.piercing        || false;
-      this.cannotBeTargeted= card.effect.cannotBeTargeted|| false;
-      this.canDirectAttack = card.effect.canDirectAttack || false;
-      this.vsAttrBonus     = card.effect.vsAttrBonus     || null;  // { attr, atk } — ATK bonus vs a specific attribute
-      this.phoenixRevival  = card.effect.phoenixRevival  || false; // revive once after destruction by opponent
+    if(card.effect && card.effect.trigger==='passive'){
+      const flags = extractPassiveFlags(card.effect);
+      this.piercing        = flags.piercing;
+      this.cannotBeTargeted= flags.cannotBeTargeted;
+      this.canDirectAttack = flags.canDirectAttack;
+      this.vsAttrBonus     = flags.vsAttrBonus;
+      this.phoenixRevival  = flags.phoenixRevival;
     } else {
       this.piercing = false;
       this.cannotBeTargeted = false;
@@ -382,7 +379,8 @@ export class GameEngine {
     this.addLog(`${owner==='player'?'Spieler':'Gegner'}: ${card.name} aktiviert!`);
     if(this.ui.showActivation) await this.ui.showActivation(card, card.description);
     if(card.effect) try {
-      card.effect.apply(this, owner, targetInfo);
+      const ctx = this._buildSpellContext(owner, targetInfo);
+      executeEffectBlock(card.effect, ctx);
     } catch(e) {
       AetherialClash.log('EFFECT', `Fehler in Zauber-Effekt [${card.id}]: ${e.message}`, '#f44');
     }
@@ -399,7 +397,8 @@ export class GameEngine {
     this.addLog(`${owner==='player'?'Spieler':'Gegner'}: ${fst.card.name} aktiviert!`);
     if(this.ui.showActivation) this.ui.showActivation(fst.card, fst.card.description);
     if(fst.card.effect) try {
-      fst.card.effect.apply(this, owner, targetInfo);
+      const ctx = this._buildSpellContext(owner, targetInfo);
+      executeEffectBlock(fst.card.effect, ctx);
     } catch(e) {
       AetherialClash.log('EFFECT', `Fehler in Zauber-Feldeffekt [${fst.card.id}]: ${e.message}`, '#f44');
     }
@@ -419,7 +418,8 @@ export class GameEngine {
     if(this.ui.showActivation) this.ui.showActivation(fst.card, fst.card.description);
     let result = null;
     if(fst.card.effect) try {
-      result = fst.card.effect.apply(this, owner, ...args) || {};
+      const ctx = this._buildTrapContext(owner, fst.card.trapTrigger, args);
+      result = executeEffectBlock(fst.card.effect, ctx);
     } catch(e) {
       AetherialClash.log('EFFECT', `Fehler in Fallen-Effekt [${fst.card.id}]: ${e.message}`, '#f44');
       result = {};
@@ -638,17 +638,39 @@ export class GameEngine {
     this.ui.render(this.state);
   }
 
+  _buildSpellContext(owner: Owner, targetInfo: any): EffectContext {
+    const ctx: EffectContext = { engine: this, owner };
+    if(targetInfo instanceof FieldCard){
+      ctx.targetFC = targetInfo;
+    } else if(targetInfo && typeof targetInfo === 'object' && 'id' in targetInfo){
+      ctx.targetCard = targetInfo as CardData;
+    }
+    return ctx;
+  }
+
+  _buildTrapContext(owner: Owner, trapTrigger: string | undefined, args: any[]): EffectContext {
+    const ctx: EffectContext = { engine: this, owner };
+    if(trapTrigger === 'onAttack'){
+      ctx.attacker = args[0];
+    } else if(trapTrigger === 'onOwnMonsterAttacked'){
+      ctx.attacker = args[0];
+      ctx.defender = args[1];
+    } else if(trapTrigger === 'onOpponentSummon'){
+      ctx.summonedFC = args[0];
+    }
+    return ctx;
+  }
+
   _triggerEffect(fc, owner, trigger, zone){
     const card = fc.card;
     if(!card.effect || card.effect.trigger !== trigger) return;
-    if(typeof card.effect.apply === 'function'){
-      AetherialClash.log('EFFECT', `${card.name} (${owner}) – Trigger: ${trigger}`);
-      if(this.ui.showActivation) this.ui.showActivation(card, card.description);
-      try {
-        card.effect.apply(this, owner, null);
-      } catch(e) {
-        AetherialClash.log('EFFECT', `Fehler in Effekt [${card.id}] trigger=${trigger}: ${e.message}`, '#f44');
-      }
+    AetherialClash.log('EFFECT', `${card.name} (${owner}) – Trigger: ${trigger}`);
+    if(this.ui.showActivation) this.ui.showActivation(card, card.description);
+    try {
+      const ctx: EffectContext = { engine: this, owner };
+      executeEffectBlock(card.effect, ctx);
+    } catch(e) {
+      AetherialClash.log('EFFECT', `Fehler in Effekt [${card.id}] trigger=${trigger}: ${e.message}`, '#f44');
     }
   }
 

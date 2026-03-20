@@ -41,26 +41,26 @@ describe('FieldCard', () => {
   });
 
   it('reads piercing passive flag', () => {
-    const card = { ...baseCard, effect: { trigger:'passive', piercing: true } };
+    const card = { ...baseCard, effect: { trigger:'passive', actions:[{ type:'passive_piercing' }] } };
     const fc = new FieldCard(card);
     expect(fc.piercing).toBe(true);
     expect(fc.canDirectAttack).toBe(false);
   });
 
   it('reads vsAttrBonus passive flag', () => {
-    const card = { ...baseCard, effect: { trigger:'passive', vsAttrBonus: { attr:'dark', atk:500 } } };
+    const card = { ...baseCard, effect: { trigger:'passive', actions:[{ type:'passive_vsAttrBonus', attr:'dark', atk:500 }] } };
     const fc = new FieldCard(card);
     expect(fc.vsAttrBonus).toEqual({ attr:'dark', atk:500 });
   });
 
   it('reads phoenixRevival passive flag', () => {
-    const card = { ...baseCard, effect: { trigger:'passive', phoenixRevival: true } };
+    const card = { ...baseCard, effect: { trigger:'passive', actions:[{ type:'passive_phoenixRevival' }] } };
     const fc = new FieldCard(card);
     expect(fc.phoenixRevival).toBe(true);
   });
 
   it('non-passive effect card gets null vsAttrBonus and false phoenixRevival', () => {
-    const card = { ...baseCard, effect: { trigger:'onSummon', apply(){} } };
+    const card = { ...baseCard, effect: { trigger:'onSummon', actions:[{ type:'dealDamage', target:'opponent', value:300 }] } };
     const fc = new FieldCard(card);
     expect(fc.vsAttrBonus).toBeNull();
     expect(fc.phoenixRevival).toBe(false);

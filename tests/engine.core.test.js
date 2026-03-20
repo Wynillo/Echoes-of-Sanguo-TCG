@@ -81,24 +81,24 @@ describe('summonMonster', () => {
 
   it('triggers onSummon effect', () => {
     const { engine } = makeEngine();
-    const burnApply = vi.fn();
     engine.state.player.hand.unshift({
       id: 'TST_BURN', name: 'BurnTest', type: 'effect', atk: 800, def: 600,
-      effect: { trigger: 'onSummon', apply: burnApply },
+      effect: { trigger: 'onSummon', actions: [{ type: 'dealDamage', target: 'opponent', value: 500 }] },
     });
+    const oppLP = engine.state.opponent.lp;
     engine.summonMonster('player', 0, 0);
-    expect(burnApply).toHaveBeenCalledOnce();
+    expect(engine.state.opponent.lp).toBe(oppLP - 500);
   });
 
   it('does NOT trigger onSummon for face-down summon', () => {
     const { engine } = makeEngine();
-    const applyFn = vi.fn();
     engine.state.player.hand.unshift({
       id: 'TST_FD', name: 'FDTest', type: 'effect', atk: 800, def: 600,
-      effect: { trigger: 'onSummon', apply: applyFn },
+      effect: { trigger: 'onSummon', actions: [{ type: 'dealDamage', target: 'opponent', value: 500 }] },
     });
+    const oppLP = engine.state.opponent.lp;
     engine.summonMonster('player', 0, 0, 'def', true);
-    expect(applyFn).not.toHaveBeenCalled();
+    expect(engine.state.opponent.lp).toBe(oppLP);
   });
 });
 
@@ -184,14 +184,15 @@ describe('attack (ATK vs ATK)', () => {
   it('triggers onDestroyByBattle on the attacker when it wins', async () => {
     const { engine } = makeEngine();
     engine.state.phase = 'battle';
-    const applyFn = vi.fn();
     const attCard = { id: 'TST_EFF', name: 'EffA', type: 'effect', atk: 1500, def: 600,
-                      effect: { trigger: 'onDestroyByBattle', apply: applyFn } };
+                      effect: { trigger: 'onDestroyByBattle', actions: [{ type: 'dealDamage', target: 'opponent', value: 200 }] } };
     placeMonster(engine, 'player',   attCard, 0);
     placeMonster(engine, 'opponent', CARD.atk1000def800, 0);
 
+    const oppLP = engine.state.opponent.lp;
     await engine.attack('player', 0, 0);
-    expect(applyFn).toHaveBeenCalledOnce();
+    // Battle damage (1500-1000=500) + effect damage (200) = 700 total
+    expect(engine.state.opponent.lp).toBe(oppLP - 700);
   });
 });
 
@@ -502,7 +503,7 @@ describe('_triggerEffect (onSummon burn)', () => {
     const { engine } = makeEngine();
     const burnCard = {
       id: 'TST_BURN2', name: 'Burner', type: 'effect', atk: 800, def: 500,
-      effect: { trigger: 'onSummon', apply(gs, owner) { gs.dealDamage(owner === 'player' ? 'opponent' : 'player', 300); } },
+      effect: { trigger: 'onSummon', actions: [{ type: 'dealDamage', target: 'opponent', value: 300 }] },
     };
     engine.state.player.hand.unshift(burnCard);
     const oppLP = engine.state.opponent.lp;
@@ -512,13 +513,13 @@ describe('_triggerEffect (onSummon burn)', () => {
 
   it('does not fire for a trigger type that does not match', () => {
     const { engine } = makeEngine();
-    const applyFn = vi.fn();
     const fc = placeMonster(engine, 'player', {
       id: 'TST_MISMATCH', name: 'MM', type: 'effect', atk: 800, def: 500,
-      effect: { trigger: 'onDestroyByBattle', apply: applyFn },
+      effect: { trigger: 'onDestroyByBattle', actions: [{ type: 'dealDamage', target: 'opponent', value: 100 }] },
     }, 0);
+    const oppLP = engine.state.opponent.lp;
     engine._triggerEffect(fc, 'player', 'onSummon', 0);
-    expect(applyFn).not.toHaveBeenCalled();
+    expect(engine.state.opponent.lp).toBe(oppLP);
   });
 });
 

@@ -80,6 +80,25 @@ const IMPL: Record<string, EffectImpl> = {
     return {};
   },
 
+  tempBuffAtkRace(desc: { race: Race; value: number }, ctx) {
+    const st = ctx.engine.getState();
+    st[ctx.owner].field.monsters.forEach(fm => {
+      if (fm && fm.card.race === desc.race) fm.tempATKBonus = (fm.tempATKBonus || 0) + desc.value;
+    });
+    return {};
+  },
+
+  tempDebuffAllOpp(desc: { atkD: number; defD?: number }, ctx) {
+    const opp: Owner = ctx.owner === 'player' ? 'opponent' : 'player';
+    const st = ctx.engine.getState();
+    st[opp].field.monsters.forEach(fm => {
+      if (!fm) return;
+      if (desc.atkD) fm.tempATKBonus = (fm.tempATKBonus || 0) - desc.atkD;
+      if (desc.defD) fm.permDEFBonus = (fm.permDEFBonus || 0) - desc.defD;
+    });
+    return {};
+  },
+
   debuffAllOpp(desc: { atkD: number; defD: number }, ctx) {
     const opp: Owner = ctx.owner === 'player' ? 'opponent' : 'player';
     const st = ctx.engine.getState();

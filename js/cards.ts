@@ -1,7 +1,7 @@
 // ============================================================
 // AETHERIAL CLASH - Kartendatenbank
 // ============================================================
-import type { CardData, FusionRecipe, OpponentConfig, Attribute, Race, CardType, RarityLevel } from './types.js';
+import type { CardData, CardEffectBlock, FusionRecipe, OpponentConfig, Attribute, Race, CardType, RarityLevel } from './types.js';
 
 export const ATTR: Record<string, Attribute> = { FIRE: 'fire', WATER: 'water', EARTH: 'earth', WIND: 'wind', LIGHT: 'light', DARK: 'dark' };
 export const TYPE: Record<string, CardType> = { NORMAL: 'normal', EFFECT: 'effect', FUSION: 'fusion', SPELL: 'spell', TRAP: 'trap' };
@@ -135,62 +135,49 @@ export const CARD_DB: Record<string, CardData> = {
     id:'M019', name:'Frosthexe', type:TYPE.EFFECT,
     attribute:ATTR.WATER, race:RACE.WASSER, rarity:RARITY.UNCOMMON, level:4, atk:1200, def:1000,
     description:'[Effekt] Bei Beschwörung: Gegner verliert 300 LP.',
-    effect: { trigger:'onSummon', apply(gs, owner){ gs.dealDamage(owner==='player'?'opponent':'player', 300); } }
+    effect: { trigger:'onSummon', actions:[{ type:'dealDamage', target:'opponent', value:300 }] }
   },
   'M020': {
     id:'M020', name:'Dunkelassassin', type:TYPE.EFFECT,
     attribute:ATTR.DARK, race:RACE.DAEMON, rarity:RARITY.UNCOMMON, level:4, atk:1400, def:800,
     description:'[Effekt] Wenn dieses Monster ein Monster im Kampf zerstört: Ziehe 1 Karte.',
-    effect: { trigger:'onDestroyByBattle', apply(gs, owner){ gs.drawCard(owner, 1); } }
+    effect: { trigger:'onDestroyByBattle', actions:[{ type:'draw', target:'self', count:1 }] }
   },
   'M021': {
     id:'M021', name:'Naturschamane', type:TYPE.EFFECT,
     attribute:ATTR.EARTH, race:RACE.PFLANZE, rarity:RARITY.UNCOMMON, level:3, atk:900, def:900,
     description:'[Effekt] Bei Beschwörung: Alle deine Erde-Monster erhalten +200 ATK.',
-    effect: { trigger:'onSummon', apply(gs, owner){
-      gs.getState()[owner].field.monsters.forEach(fm => {
-        if(fm && fm.card.attribute === ATTR.EARTH) fm.permATKBonus = (fm.permATKBonus||0) + 200;
-      });
-    }}
+    effect: { trigger:'onSummon', actions:[{ type:'buffAtkAttr', attr:'earth', value:200 }] }
   },
   'M022': {
     id:'M022', name:'Flammenphönix', type:TYPE.EFFECT,
     attribute:ATTR.FIRE, race:RACE.FEUER, rarity:RARITY.RARE, level:5, atk:1700, def:1300,
     description:'[Effekt] Wenn durch den Gegner zerstört: Kann einmalig mit 500 weniger ATK als Spezialbeschwörung aus dem Friedhof beschworen werden.',
-    effect: { trigger:'passive', phoenixRevival: true }
+    effect: { trigger:'passive', actions:[{ type:'passive_phoenixRevival' }] }
   },
   'M023': {
     id:'M023', name:'Blitzmagier', type:TYPE.EFFECT,
     attribute:ATTR.WIND, race:RACE.MAGIER, rarity:RARITY.RARE, level:5, atk:1800, def:1200,
     description:'[Effekt] Bei Beschwörung: Füge dem Gegner 500 Schaden zu.',
-    effect: { trigger:'onSummon', apply(gs, owner){ gs.dealDamage(owner==='player'?'opponent':'player', 500); } }
+    effect: { trigger:'onSummon', actions:[{ type:'dealDamage', target:'opponent', value:500 }] }
   },
   'M024': {
     id:'M024', name:'Heiliger Krieger', type:TYPE.EFFECT,
     attribute:ATTR.LIGHT, race:RACE.KRIEGER, rarity:RARITY.RARE, level:6, atk:2100, def:1800,
     description:'[Passiv] Im Kampf gegen ein DUNKEL-Monster: +500 ATK.',
-    effect: { trigger:'passive', vsAttrBonus: { attr: ATTR.DARK, atk: 500 } }
+    effect: { trigger:'passive', actions:[{ type:'passive_vsAttrBonus', attr:'dark', atk:500 }] }
   },
   'M025': {
     id:'M025', name:'Schattensensenmann', type:TYPE.EFFECT,
     attribute:ATTR.DARK, race:RACE.DAEMON, rarity:RARITY.RARE, level:6, atk:2000, def:1600,
     description:'[Effekt] Wenn dieses Monster ein Monster zerstört: Erhalte 500 LP.',
-    effect: { trigger:'onDestroyByBattle', apply(gs, owner){ gs.gainLP(owner, 500); } }
+    effect: { trigger:'onDestroyByBattle', actions:[{ type:'gainLP', target:'self', value:500 }] }
   },
   'M026': {
     id:'M026', name:'Wasserdrache', type:TYPE.EFFECT,
     attribute:ATTR.WATER, race:RACE.DRACHE, rarity:RARITY.RARE, level:6, atk:2200, def:1700,
     description:'[Effekt] Bei Beschwörung: Füge 1 Wasserkarte aus deinem Deck in deine Hand hinzu.',
-    effect: { trigger:'onSummon', apply(gs, owner){
-      const st = gs.getState();
-      const deck = st[owner].deck;
-      const idx = deck.findIndex(c => c.attribute === ATTR.WATER);
-      if(idx !== -1){
-        const [c] = deck.splice(idx,1);
-        st[owner].hand.push(c);
-        gs.addLog(`${owner==='player'?'Du':'Gegner'}: ${c.name} durch Wasserdrache auf die Hand genommen.`);
-      }
-    }}
+    effect: { trigger:'onSummon', actions:[{ type:'searchDeckToHand', attr:'water' }] }
   },
 
   // ===== FUSIONSMONSTER =====
@@ -208,7 +195,7 @@ export const CARD_DB: Record<string, CardData> = {
     id:'M029', name:'Schattendracos', type:TYPE.FUSION,
     attribute:ATTR.DARK, race:RACE.DRACHE, rarity:RARITY.SUPER_RARE, level:8, atk:2600, def:2100,
     description:'[Fusion] Schattenwolf + Dunkelassassin. Ein finsterer Drache aus der Dunkelheit selbst.',
-    effect:{ trigger:'onDestroyByBattle', apply(gs, owner){ gs.drawCard(owner,1); } }
+    effect:{ trigger:'onDestroyByBattle', actions:[{ type:'draw', target:'self', count:1 }] }
   },
   'M030': {
     id:'M030', name:'Strahlender Golem', type:TYPE.FUSION,
@@ -234,19 +221,19 @@ export const CARD_DB: Record<string, CardData> = {
     id:'M034', name:'Flammender Phönix', type:TYPE.FUSION,
     attribute:ATTR.FIRE, race:RACE.FEUER, rarity:RARITY.SUPER_RARE, level:7, atk:2400, def:2000,
     description:'[Fusion] Feuersalamander + Flammenphönix. Bei Beschwörung: Füge dem Gegner 800 Schaden zu.',
-    effect:{ trigger:'onSummon', apply(gs, owner){ gs.dealDamage(owner==='player'?'opponent':'player', 800); } }
+    effect:{ trigger:'onSummon', actions:[{ type:'dealDamage', target:'opponent', value:800 }] }
   },
   'M035': {
     id:'M035', name:'Himmelsdrache', type:TYPE.FUSION,
     attribute:ATTR.LIGHT, race:RACE.DRACHE, rarity:RARITY.ULTRA_RARE, level:9, atk:2900, def:2400,
     description:'[Fusion] Kristallritter + Heiliger Krieger. Der mächtigste Drache des Himmels. Kann nicht durch Effekte als Ziel gewählt werden.',
-    effect:{ trigger:'passive', cannotBeTargeted: true }
+    effect:{ trigger:'passive', actions:[{ type:'passive_untargetable' }] }
   },
   'M036': {
     id:'M036', name:'Leerenphantom', type:TYPE.FUSION,
     attribute:ATTR.DARK, race:RACE.DAEMON, rarity:RARITY.ULTRA_RARE, level:7, atk:2500, def:2100,
     description:'[Fusion] Knochenschütze + Schattenwolf. Durchbohrender Angriff: Überschussschaden trifft die LP.',
-    effect:{ trigger:'passive', piercing: true }
+    effect:{ trigger:'passive', actions:[{ type:'passive_piercing' }] }
   },
 
   // ===== ZAUBERKARTEN =====
@@ -255,50 +242,42 @@ export const CARD_DB: Record<string, CardData> = {
     race:RACE.FEUER, rarity:RARITY.COMMON,
     description:'Füge dem Gegner 800 Schadenspunkte zu.',
     spellType:'normal',
-    effect:{ apply(gs, owner){ gs.dealDamage(owner==='player'?'opponent':'player', 800); } }
+    effect:{ trigger:'onSummon', actions:[{ type:'dealDamage', target:'opponent', value:800 }] }
   },
   'S002': {
     id:'S002', name:'Heilquelle', type:TYPE.SPELL,
     race:RACE.PFLANZE, rarity:RARITY.COMMON,
     description:'Erhalte 1000 Lebenspunkte.',
     spellType:'normal',
-    effect:{ apply(gs, owner){ gs.gainLP(owner, 1000); } }
+    effect:{ trigger:'onSummon', actions:[{ type:'gainLP', target:'self', value:1000 }] }
   },
   'S003': {
     id:'S003', name:'Kraftschub', type:TYPE.SPELL,
     rarity:RARITY.COMMON,
     description:'Wähle ein Monster auf deinem Spielfeld. Es erhält bis zum Ende des Zuges +700 ATK.',
     spellType:'targeted', target:'ownMonster',
-    effect:{ apply(gs, owner, target){
-      if(target) { (target as {tempATKBonus: number}).tempATKBonus = ((target as {tempATKBonus: number}).tempATKBonus||0) + 700; }
-    }}
+    effect:{ trigger:'onSummon', actions:[{ type:'tempAtkBonus', target:'ownMonster', value:700 }] }
   },
   'S004': {
     id:'S004', name:'Dunkles Ritual', type:TYPE.SPELL,
     race:RACE.DAEMON, rarity:RARITY.UNCOMMON,
     description:'Wähle ein DUNKEL-Monster auf deinem Spielfeld. Es erhält dauerhaft +500 ATK.',
     spellType:'targeted', target:'ownDarkMonster',
-    effect:{ apply(gs, owner, target){
-      if(target && (target as {card: CardData}).card.attribute === ATTR.DARK){
-        (target as {permATKBonus: number}).permATKBonus = ((target as {permATKBonus: number}).permATKBonus||0) + 500;
-      }
-    }}
+    effect:{ trigger:'onSummon', actions:[{ type:'permAtkBonus', target:'ownMonster', value:500, attrFilter:'dark' }] }
   },
   'S005': {
     id:'S005', name:'Kartenzug', type:TYPE.SPELL,
     rarity:RARITY.COMMON,
     description:'Ziehe 2 Karten.',
     spellType:'normal',
-    effect:{ apply(gs, owner){ gs.drawCard(owner, 2); } }
+    effect:{ trigger:'onSummon', actions:[{ type:'draw', target:'self', count:2 }] }
   },
   'S006': {
     id:'S006', name:'Monsterwiederbelebung', type:TYPE.SPELL,
     rarity:RARITY.UNCOMMON,
     description:'Beschwöre ein Monster aus deinem Friedhof als Spezialbeschwörung.',
     spellType:'fromGrave', target:'ownGraveMonster',
-    effect:{ apply(gs, owner, target){
-      if(target) { gs.specialSummonFromGrave(owner, target as CardData); }
-    }}
+    effect:{ trigger:'onSummon', actions:[{ type:'reviveFromGrave' }] }
   },
 
   // ===== FALLENKARTEN =====
@@ -307,46 +286,31 @@ export const CARD_DB: Record<string, CardData> = {
     rarity:RARITY.COMMON,
     description:'Aktiviere wenn ein Monster des Gegners angreift: Füge dem Gegner Schaden gleich ATK des angreifenden Monsters ÷ 2 zu.',
     trapTrigger:'onAttack',
-    effect:{ apply(gs, owner, attacker){
-      const opp = owner==='player'?'opponent':'player';
-      const dmg = Math.floor((attacker as {effectiveATK(): number}).effectiveATK() / 2);
-      gs.dealDamage(opp, dmg);
-      gs.addLog(`Gegenexplosion! ${dmg} Schaden an ${opp==='player'?'den Spieler':'den Gegner'}!`);
-      return { cancelAttack: true };
-    }}
+    effect:{ trigger:'onAttack', actions:[
+      { type:'dealDamage', target:'opponent', value:{ from:'attacker.effectiveATK', multiply:0.5, round:'floor' } },
+      { type:'cancelAttack' },
+    ]}
   },
   'T002': {
     id:'T002', name:'Spiegelschild', type:TYPE.TRAP,
     rarity:RARITY.COMMON,
     description:'Aktiviere wenn eines deiner Monster angegriffen wird: Negiere diesen Angriff.',
     trapTrigger:'onOwnMonsterAttacked',
-    effect:{ apply(gs, owner, attacker, defender){
-      gs.addLog(`Spiegelschild! Angriff negiert!`);
-      return { cancelAttack: true };
-    }}
+    effect:{ trigger:'onOwnMonsterAttacked', actions:[{ type:'cancelAttack' }] }
   },
   'T003': {
     id:'T003', name:'Fallenloch', type:TYPE.TRAP,
     rarity:RARITY.UNCOMMON,
     description:'Aktiviere wenn der Gegner ein Monster mit 1000+ ATK beschwört: Zerstöre es.',
     trapTrigger:'onOpponentSummon',
-    effect:{ apply(gs, owner, summonedFieldCard){
-      const fc = summonedFieldCard as {card: CardData} | null;
-      if(fc && fc.card.atk !== undefined && fc.card.atk >= 1000){
-        gs.addLog(`Fallenloch! ${fc.card.name} wird zerstört!`);
-        return { destroySummoned: true };
-      }
-      return {};
-    }}
+    effect:{ trigger:'onOpponentSummon', actions:[{ type:'destroySummonedIf', minAtk:1000 }] }
   },
   'T004': {
     id:'T004', name:'Schwächungsfluch', type:TYPE.TRAP,
     rarity:RARITY.COMMON,
     description:'Aktiviere in der Kampfphase: Wähle ein Monster des Gegners – es verliert bis Kampfphasenende 1000 ATK.',
     trapTrigger:'manual', target:'oppMonster',
-    effect:{ apply(gs, owner, target){
-      if(target){ (target as {tempATKBonus: number}).tempATKBonus = ((target as {tempATKBonus: number}).tempATKBonus||0) - 1000; }
-    }}
+    effect:{ trigger:'manual', actions:[{ type:'tempAtkBonus', target:'oppMonster', value:-1000 }] }
   },
 };
 

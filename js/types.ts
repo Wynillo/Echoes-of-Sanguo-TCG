@@ -23,17 +23,6 @@ export interface VsAttrBonus {
   atk:  number;
 }
 
-/** @deprecated Use CardEffectBlock instead. Will be removed after migration. */
-export interface CardEffect {
-  trigger?:           EffectTrigger;
-  apply?:             (engine: GameEngine, owner: Owner, targetInfo?: unknown) => unknown;
-  piercing?:          boolean;
-  cannotBeTargeted?:  boolean;
-  canDirectAttack?:   boolean;
-  vsAttrBonus?:       VsAttrBonus;
-  phoenixRevival?:    boolean;
-}
-
 // ── Data-Driven Effect System ───────────────────────────────
 
 /** Dynamic value expression — allows effects to reference runtime values */
@@ -56,6 +45,9 @@ export type EffectDescriptor =
   | { type: 'buffAtkRace';        race: Race;      value: number }
   | { type: 'buffAtkAttr';        attr: Attribute;  value: number }
   | { type: 'debuffAllOpp';       atkD: number; defD: number }
+  // Temporary field-wide buffs/debuffs (spell effects)
+  | { type: 'tempBuffAtkRace';    race: Race;      value: number }
+  | { type: 'tempDebuffAllOpp';   atkD: number; defD?: number }
   // Bounce
   | { type: 'bounceStrongestOpp' }
   | { type: 'bounceAttacker' }
@@ -122,7 +114,7 @@ export interface CardData {
   atk?:         number;
   def?:         number;
   description:  string;
-  effect?:      CardEffect | CardEffectBlock;
+  effect?:      CardEffectBlock;
   // Spell / Trap extras
   spellType?:   SpellType;
   trapTrigger?: TrapTrigger;

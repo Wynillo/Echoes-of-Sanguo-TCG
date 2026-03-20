@@ -3,7 +3,7 @@
 // 672 neue Karten + STARTER_DECKS
 // Lädt nach cards.ts und erweitert CARD_DB global.
 // ============================================================
-import type { CardEffect, CardData, RarityLevel } from './types.js';
+import type { CardEffectBlock, CardData, RarityLevel } from './types.js';
 import { CARD_DB, RARITY, RACE, ATTR, TYPE, FUSION_RECIPES } from './cards.js';
 
 // Wraps every CARD_DB write — warns in the console if an ID is reused.
@@ -15,46 +15,25 @@ function _addCard(id: string, def: CardData): void {
   CARD_DB[id] = def;
 }
 
-  // ── Effekt-Fabriken ─────────────────────────────────────────
-  function fxBurnSummon(n: number): CardEffect      { return { trigger:'onSummon',          apply(gs,o){ gs.dealDamage(o==='player'?'opponent':'player', n); } }; }
-  function fxHealSummon(n: number): CardEffect      { return { trigger:'onSummon',          apply(gs,o){ gs.gainLP(o, n); } }; }
-  function fxDrawSummon(n: number): CardEffect      { return { trigger:'onSummon',          apply(gs,o){ gs.drawCard(o, n); } }; }
-  function fxBurnDestroy(n: number): CardEffect     { return { trigger:'onDestroyByBattle', apply(gs,o){ gs.dealDamage(o==='player'?'opponent':'player', n); } }; }
-  function fxHealDestroy(n: number): CardEffect     { return { trigger:'onDestroyByBattle', apply(gs,o){ gs.gainLP(o, n); } }; }
-  function fxDrawDestroy(n: number): CardEffect     { return { trigger:'onDestroyByBattle', apply(gs,o){ gs.drawCard(o, n); } }; }
-  function fxBuffRaceSummon(race: string, n: number): CardEffect {
-    return { trigger:'onSummon', apply(gs,o){
-      gs.getState()[o].field.monsters.forEach(fm=>{
-        if(fm && fm.card.race===race) fm.permATKBonus=(fm.permATKBonus||0)+n;
-      });
-    }};
+  // ── Effekt-Fabriken (data-driven) ──────────────────────────
+  function fxBurnSummon(n: number): CardEffectBlock      { return { trigger:'onSummon',          actions:[{ type:'dealDamage', target:'opponent', value:n }] }; }
+  function fxHealSummon(n: number): CardEffectBlock      { return { trigger:'onSummon',          actions:[{ type:'gainLP', target:'self', value:n }] }; }
+  function fxDrawSummon(n: number): CardEffectBlock      { return { trigger:'onSummon',          actions:[{ type:'draw', target:'self', count:n }] }; }
+  function fxBurnDestroy(n: number): CardEffectBlock     { return { trigger:'onDestroyByBattle', actions:[{ type:'dealDamage', target:'opponent', value:n }] }; }
+  function fxHealDestroy(n: number): CardEffectBlock     { return { trigger:'onDestroyByBattle', actions:[{ type:'gainLP', target:'self', value:n }] }; }
+  function fxDrawDestroy(n: number): CardEffectBlock     { return { trigger:'onDestroyByBattle', actions:[{ type:'draw', target:'self', count:n }] }; }
+  function fxBuffRaceSummon(race: string, n: number): CardEffectBlock {
+    return { trigger:'onSummon', actions:[{ type:'buffAtkRace', race: race as any, value:n }] };
   }
-  function fxDebuffAllOpp(atkD: number, defD: number): CardEffect {
-    return { trigger:'onSummon', apply(gs,o){
-      const op=o==='player'?'opponent':'player';
-      gs.getState()[op].field.monsters.forEach(fm=>{
-        if(!fm) return;
-        if(atkD) fm.permATKBonus=(fm.permATKBonus||0)-atkD;
-        if(defD) fm.permDEFBonus=(fm.permDEFBonus||0)-defD;
-      });
-    }};
+  function fxDebuffAllOpp(atkD: number, defD: number): CardEffectBlock {
+    return { trigger:'onSummon', actions:[{ type:'debuffAllOpp', atkD, defD }] };
   }
-  function fxBounceOppSummon(): CardEffect {
-    return { trigger:'onSummon', apply(gs,o){
-      const op=o==='player'?'opponent':'player';
-      const st=gs.getState()[op].field.monsters;
-      const strongest = st.reduce<number|null>((a,b,i)=>(!b?a: (!a||b.effectiveATK()>st[a]!.effectiveATK()?i:a)),null);
-      if(strongest!==null && st[strongest]){
-        const fc=st[strongest]!;
-        gs.getState()[op].hand.push(fc.card);
-        st[strongest]=null;
-        gs.addLog(`${fc.card.name} wurde auf die Hand zurückgespielt!`);
-      }
-    }};
+  function fxBounceOppSummon(): CardEffectBlock {
+    return { trigger:'onSummon', actions:[{ type:'bounceStrongestOpp' }] };
   }
-  function fxPiercing(): CardEffect         { return { trigger:'passive', piercing:true }; }
-  function fxUntargetable(): CardEffect    { return { trigger:'passive', cannotBeTargeted:true }; }
-  function fxCanDirectAttack(): CardEffect { return { trigger:'passive', canDirectAttack:true }; }
+  function fxPiercing(): CardEffectBlock         { return { trigger:'passive', actions:[{ type:'passive_piercing' }] }; }
+  function fxUntargetable(): CardEffectBlock    { return { trigger:'passive', actions:[{ type:'passive_untargetable' }] }; }
+  function fxCanDirectAttack(): CardEffectBlock { return { trigger:'passive', actions:[{ type:'passive_directAttack' }] }; }
 
   // ── Rassen-Attribut-Map ─────────────────────────────────────
   const RACE_ATTR: Record<string, string> = {
@@ -268,7 +247,7 @@ function _addCard(id: string, def: CardData): void {
 
   // ── Effekt-Monster (200) ───────────────────────────────────
   // Format: [id, name, level, rarity, atk, def, desc, effect]
-  const EFFECT_ENTRIES: [string, string, number, RarityLevel, number, number, string, CardEffect][] = [
+  const EFFECT_ENTRIES: [string, string, number, RarityLevel, number, number, string, CardEffectBlock][] = [
 
     // ── FEUER (EFE01–EFE20) ──────────────────────────────────
     ['EFE01','Glutspeier',      3,'uncommon', 900, 600, '[Effekt] Bei Beschwörung: Gegner verliert 200 LP.', fxBurnSummon(200)],
@@ -512,7 +491,7 @@ function _addCard(id: string, def: CardData): void {
   });
 
   // ── 20 neue Fusionsmonster ─────────────────────────────────
-  const FUSION_NEW: [string, string, number, RarityLevel, string, string, number, number, string, CardEffect][] = [
+  const FUSION_NEW: [string, string, number, RarityLevel, string, string, number, number, string, CardEffectBlock][] = [
     // Feuer
     ['FFE1','Feuerkoloss',      7,'super_rare',ATTR.FIRE,  RACE.FEUER,   2400,1900, '[Fusion] Bei Beschwörung: Alle Feuer-Monster erhalten +400 ATK. Gegner verliert 800 LP.', fxBuffRaceSummon(RACE.FEUER,400)],
     ['FFE2','Infernodrakon',    8,'ultra_rare',ATTR.FIRE,  RACE.FEUER,   2800,2200, '[Fusion] Bei Beschwörung: Gegner verliert 2000 LP.', fxBurnSummon(2000)],
@@ -578,87 +557,89 @@ function _addCard(id: string, def: CardData): void {
   );
 
   // ── 70 Zauberkarten (7 pro Rasse) ────────────────────────────
-  const SPELL_ENTRIES: [string, string, string, RarityLevel, string, CardEffect][] = [
+  const SPELL_ENTRIES: [string, string, string, RarityLevel, string, CardEffectBlock][] = [
     // Feuer
-    ['ZFE1','Flammenangriff',  RACE.FEUER,   'common',     'Füge dem Gegner 600 Schadenspunkte zu.',                             {apply(gs,o){gs.dealDamage(o==='player'?'opponent':'player',600);}}],
-    ['ZFE2','Lavastrom',       RACE.FEUER,   'uncommon',   'Füge dem Gegner 1000 Schadenspunkte zu.',                            {apply(gs,o){gs.dealDamage(o==='player'?'opponent':'player',1000);}}],
-    ['ZFE3','Glutwand',        RACE.FEUER,   'common',     'Alle deine Feuer-Monster erhalten bis zum Ende des Zuges +500 ATK.',  {apply(gs,o){gs.getState()[o].field.monsters.forEach(fm=>{if(fm&&fm.card.race===RACE.FEUER)fm.tempATKBonus=(fm.tempATKBonus||0)+500;});}}],
-    ['ZFE4','Ascheregen',      RACE.FEUER,   'uncommon',   'Füge dem Gegner 500 Schaden zu und erhalte 500 LP.',                 {apply(gs,o){gs.dealDamage(o==='player'?'opponent':'player',500);gs.gainLP(o,500);}}],
-    ['ZFE5','Inferno',         RACE.FEUER,   'rare',       'Füge dem Gegner 1500 Schadenspunkte zu.',                            {apply(gs,o){gs.dealDamage(o==='player'?'opponent':'player',1500);}}],
-    ['ZFE6','Pyroexplosion',   RACE.FEUER,   'rare',       'Füge dem Gegner 2000 Schadenspunkte zu.',                            {apply(gs,o){gs.dealDamage(o==='player'?'opponent':'player',2000);}}],
-    ['ZFE7','Vulkansturm',     RACE.FEUER,   'super_rare', 'Füge dem Gegner 2500 Schadenspunkte zu.',                            {apply(gs,o){gs.dealDamage(o==='player'?'opponent':'player',2500);}}],
+    ['ZFE1','Flammenangriff',  RACE.FEUER,   'common',     'Füge dem Gegner 600 Schadenspunkte zu.',                             { trigger:'onSummon', actions:[{ type:'dealDamage', target:'opponent', value:600 }] }],
+    ['ZFE2','Lavastrom',       RACE.FEUER,   'uncommon',   'Füge dem Gegner 1000 Schadenspunkte zu.',                            { trigger:'onSummon', actions:[{ type:'dealDamage', target:'opponent', value:1000 }] }],
+    ['ZFE3','Glutwand',        RACE.FEUER,   'common',     'Alle deine Feuer-Monster erhalten bis zum Ende des Zuges +500 ATK.',  { trigger:'onSummon', actions:[{ type:'tempBuffAtkRace', race:RACE.FEUER, value:500 }] }],
+    ['ZFE4','Ascheregen',      RACE.FEUER,   'uncommon',   'Füge dem Gegner 500 Schaden zu und erhalte 500 LP.',                 { trigger:'onSummon', actions:[{ type:'dealDamage', target:'opponent', value:500 }, { type:'gainLP', target:'self', value:500 }] }],
+    ['ZFE5','Inferno',         RACE.FEUER,   'rare',       'Füge dem Gegner 1500 Schadenspunkte zu.',                            { trigger:'onSummon', actions:[{ type:'dealDamage', target:'opponent', value:1500 }] }],
+    ['ZFE6','Pyroexplosion',   RACE.FEUER,   'rare',       'Füge dem Gegner 2000 Schadenspunkte zu.',                            { trigger:'onSummon', actions:[{ type:'dealDamage', target:'opponent', value:2000 }] }],
+    ['ZFE7','Vulkansturm',     RACE.FEUER,   'super_rare', 'Füge dem Gegner 2500 Schadenspunkte zu.',                            { trigger:'onSummon', actions:[{ type:'dealDamage', target:'opponent', value:2500 }] }],
     // Drache
-    ['ZDR1','Drachenklaue',    RACE.DRACHE,  'common',     'Alle deine Drachen erhalten +600 ATK bis Rundenende.',               {apply(gs,o){gs.getState()[o].field.monsters.forEach(fm=>{if(fm&&fm.card.race===RACE.DRACHE)fm.tempATKBonus=(fm.tempATKBonus||0)+600;});}}],
-    ['ZDR2','Drachenschuppe',  RACE.DRACHE,  'uncommon',   'Alle deine Drachen können nicht als Ziel gewählt werden.',           {apply(gs,o){gs.getState()[o].field.monsters.forEach(fm=>{if(fm&&fm.card.race===RACE.DRACHE)(fm as unknown as {card: {effect: unknown}}).card=Object.assign({},fm.card,{effect:{trigger:'passive',cannotBeTargeted:true}});});}}],
-    ['ZDR3','Urnacht',         RACE.DRACHE,  'common',     'Ziehe 2 Karten.',                                                   {apply(gs,o){gs.drawCard(o,2);}}],
-    ['ZDR4','Drachenangriff',  RACE.DRACHE,  'uncommon',   'Alle deine Drachen erhalten +1000 ATK bis Rundenende.',              {apply(gs,o){gs.getState()[o].field.monsters.forEach(fm=>{if(fm&&fm.card.race===RACE.DRACHE)fm.tempATKBonus=(fm.tempATKBonus||0)+1000;});}}],
-    ['ZDR5','Wyrmbeschwörung', RACE.DRACHE,  'rare',       'Füge dem Gegner 800 Schaden zu. Ziehe 1 Karte.',                    {apply(gs,o){gs.dealDamage(o==='player'?'opponent':'player',800);gs.drawCard(o,1);}}],
-    ['ZDR6','Schuppenpanzer',  RACE.DRACHE,  'rare',       'Alle deine Drachen erhalten +1500 ATK bis Rundenende.',              {apply(gs,o){gs.getState()[o].field.monsters.forEach(fm=>{if(fm&&fm.card.race===RACE.DRACHE)fm.tempATKBonus=(fm.tempATKBonus||0)+1500;});}}],
-    ['ZDR7','Drachensturm',    RACE.DRACHE,  'super_rare', 'Alle Gegnermonster verlieren 1000 ATK. Füge dem Gegner 500 Schaden zu.',{apply(gs,o){const op=o==='player'?'opponent':'player';gs.getState()[op].field.monsters.forEach(fm=>{if(fm)fm.permATKBonus=(fm.permATKBonus||0)-1000;});gs.dealDamage(op,500);}}],
+    ['ZDR1','Drachenklaue',    RACE.DRACHE,  'common',     'Alle deine Drachen erhalten +600 ATK bis Rundenende.',               { trigger:'onSummon', actions:[{ type:'tempBuffAtkRace', race:RACE.DRACHE, value:600 }] }],
+    // ZDR2: Not expressible as descriptor — needs special handling
+    ['ZDR2','Drachenschuppe',  RACE.DRACHE,  'uncommon',   'Alle deine Drachen können nicht als Ziel gewählt werden.',           {apply(gs,o){gs.getState()[o].field.monsters.forEach(fm=>{if(fm&&fm.card.race===RACE.DRACHE)(fm as unknown as {card: {effect: unknown}}).card=Object.assign({},fm.card,{effect:{trigger:'passive',cannotBeTargeted:true}});});}} as unknown as CardEffectBlock],
+    ['ZDR3','Urnacht',         RACE.DRACHE,  'common',     'Ziehe 2 Karten.',                                                   { trigger:'onSummon', actions:[{ type:'draw', target:'self', count:2 }] }],
+    ['ZDR4','Drachenangriff',  RACE.DRACHE,  'uncommon',   'Alle deine Drachen erhalten +1000 ATK bis Rundenende.',              { trigger:'onSummon', actions:[{ type:'tempBuffAtkRace', race:RACE.DRACHE, value:1000 }] }],
+    ['ZDR5','Wyrmbeschwörung', RACE.DRACHE,  'rare',       'Füge dem Gegner 800 Schaden zu. Ziehe 1 Karte.',                    { trigger:'onSummon', actions:[{ type:'dealDamage', target:'opponent', value:800 }, { type:'draw', target:'self', count:1 }] }],
+    ['ZDR6','Schuppenpanzer',  RACE.DRACHE,  'rare',       'Alle deine Drachen erhalten +1500 ATK bis Rundenende.',              { trigger:'onSummon', actions:[{ type:'tempBuffAtkRace', race:RACE.DRACHE, value:1500 }] }],
+    ['ZDR7','Drachensturm',    RACE.DRACHE,  'super_rare', 'Alle Gegnermonster verlieren 1000 ATK. Füge dem Gegner 500 Schaden zu.',{ trigger:'onSummon', actions:[{ type:'debuffAllOpp', atkD:1000, defD:0 }, { type:'dealDamage', target:'opponent', value:500 }] }],
     // Flug
-    ['ZFL1','Windstoß',        RACE.FLUG,    'common',     'Alle Gegnermonster verlieren 300 ATK bis Rundenende.',               {apply(gs,o){const op=o==='player'?'opponent':'player';gs.getState()[op].field.monsters.forEach(fm=>{if(fm)fm.tempATKBonus=(fm.tempATKBonus||0)-300;});}}],
-    ['ZFL2','Sturmschrei',     RACE.FLUG,    'uncommon',   'Alle Gegnermonster verlieren 500 ATK bis Rundenende.',               {apply(gs,o){const op=o==='player'?'opponent':'player';gs.getState()[op].field.monsters.forEach(fm=>{if(fm)fm.tempATKBonus=(fm.tempATKBonus||0)-500;});}}],
-    ['ZFL3','Federleicht',     RACE.FLUG,    'common',     'Ziehe 1 Karte. Erhalte 300 LP.',                                    {apply(gs,o){gs.drawCard(o,1);gs.gainLP(o,300);}}],
-    ['ZFL4','Windbarriere',    RACE.FLUG,    'uncommon',   'Alle deine Flug-Monster erhalten +500 ATK bis Rundenende.',          {apply(gs,o){gs.getState()[o].field.monsters.forEach(fm=>{if(fm&&fm.card.race===RACE.FLUG)fm.tempATKBonus=(fm.tempATKBonus||0)+500;});}}],
-    ['ZFL5','Sturmschwinge',   RACE.FLUG,    'rare',       'Alle Gegnermonster verlieren 800 ATK bis Rundenende.',               {apply(gs,o){const op=o==='player'?'opponent':'player';gs.getState()[op].field.monsters.forEach(fm=>{if(fm)fm.tempATKBonus=(fm.tempATKBonus||0)-800;});}}],
-    ['ZFL6','Himmelsfall',     RACE.FLUG,    'rare',       'Füge dem Gegner 1200 Schaden zu. Alle Gegnermonster verlieren 400 ATK.',{apply(gs,o){const op=o==='player'?'opponent':'player';gs.dealDamage(op,1200);gs.getState()[op].field.monsters.forEach(fm=>{if(fm)fm.tempATKBonus=(fm.tempATKBonus||0)-400;});}}],
-    ['ZFL7','Ätherstrom',      RACE.FLUG,    'super_rare', 'Alle Gegnermonster verlieren 1200 ATK bis Rundenende.',              {apply(gs,o){const op=o==='player'?'opponent':'player';gs.getState()[op].field.monsters.forEach(fm=>{if(fm)fm.tempATKBonus=(fm.tempATKBonus||0)-1200;});}}],
+    ['ZFL1','Windstoß',        RACE.FLUG,    'common',     'Alle Gegnermonster verlieren 300 ATK bis Rundenende.',               { trigger:'onSummon', actions:[{ type:'tempDebuffAllOpp', atkD:300 }] }],
+    ['ZFL2','Sturmschrei',     RACE.FLUG,    'uncommon',   'Alle Gegnermonster verlieren 500 ATK bis Rundenende.',               { trigger:'onSummon', actions:[{ type:'tempDebuffAllOpp', atkD:500 }] }],
+    ['ZFL3','Federleicht',     RACE.FLUG,    'common',     'Ziehe 1 Karte. Erhalte 300 LP.',                                    { trigger:'onSummon', actions:[{ type:'draw', target:'self', count:1 }, { type:'gainLP', target:'self', value:300 }] }],
+    ['ZFL4','Windbarriere',    RACE.FLUG,    'uncommon',   'Alle deine Flug-Monster erhalten +500 ATK bis Rundenende.',          { trigger:'onSummon', actions:[{ type:'tempBuffAtkRace', race:RACE.FLUG, value:500 }] }],
+    ['ZFL5','Sturmschwinge',   RACE.FLUG,    'rare',       'Alle Gegnermonster verlieren 800 ATK bis Rundenende.',               { trigger:'onSummon', actions:[{ type:'tempDebuffAllOpp', atkD:800 }] }],
+    ['ZFL6','Himmelsfall',     RACE.FLUG,    'rare',       'Füge dem Gegner 1200 Schaden zu. Alle Gegnermonster verlieren 400 ATK.',{ trigger:'onSummon', actions:[{ type:'dealDamage', target:'opponent', value:1200 }, { type:'tempDebuffAllOpp', atkD:400 }] }],
+    ['ZFL7','Ätherstrom',      RACE.FLUG,    'super_rare', 'Alle Gegnermonster verlieren 1200 ATK bis Rundenende.',              { trigger:'onSummon', actions:[{ type:'tempDebuffAllOpp', atkD:1200 }] }],
     // Stein
-    ['ZST1','Erdwall',         RACE.STEIN,   'common',     'Erhalte 800 Lebenspunkte.',                                         {apply(gs,o){gs.gainLP(o,800);}}],
-    ['ZST2','Steinschild',     RACE.STEIN,   'common',     'Erhalte 1200 Lebenspunkte.',                                        {apply(gs,o){gs.gainLP(o,1200);}}],
-    ['ZST3','Granitpanzer',    RACE.STEIN,   'uncommon',   'Alle deine Stein-Monster erhalten +600 ATK bis Rundenende.',        {apply(gs,o){gs.getState()[o].field.monsters.forEach(fm=>{if(fm&&fm.card.race===RACE.STEIN)fm.tempATKBonus=(fm.tempATKBonus||0)+600;});}}],
-    ['ZST4','Felsenheilung',   RACE.STEIN,   'uncommon',   'Erhalte 2000 Lebenspunkte.',                                        {apply(gs,o){gs.gainLP(o,2000);}}],
-    ['ZST5','Erderschütterung',RACE.STEIN,   'rare',       'Alle Gegnermonster verlieren 600 ATK dauerhaft.',                   {apply(gs,o){const op=o==='player'?'opponent':'player';gs.getState()[op].field.monsters.forEach(fm=>{if(fm)fm.permATKBonus=(fm.permATKBonus||0)-600;});}}],
-    ['ZST6','Steinwelle',      RACE.STEIN,   'rare',       'Erhalte 3000 LP. Füge dem Gegner 500 Schaden zu.',                  {apply(gs,o){gs.gainLP(o,3000);gs.dealDamage(o==='player'?'opponent':'player',500);}}],
-    ['ZST7','Urstein',         RACE.STEIN,   'super_rare', 'Erhalte 4000 Lebenspunkte.',                                        {apply(gs,o){gs.gainLP(o,4000);}}],
+    ['ZST1','Erdwall',         RACE.STEIN,   'common',     'Erhalte 800 Lebenspunkte.',                                         { trigger:'onSummon', actions:[{ type:'gainLP', target:'self', value:800 }] }],
+    ['ZST2','Steinschild',     RACE.STEIN,   'common',     'Erhalte 1200 Lebenspunkte.',                                        { trigger:'onSummon', actions:[{ type:'gainLP', target:'self', value:1200 }] }],
+    ['ZST3','Granitpanzer',    RACE.STEIN,   'uncommon',   'Alle deine Stein-Monster erhalten +600 ATK bis Rundenende.',        { trigger:'onSummon', actions:[{ type:'tempBuffAtkRace', race:RACE.STEIN, value:600 }] }],
+    ['ZST4','Felsenheilung',   RACE.STEIN,   'uncommon',   'Erhalte 2000 Lebenspunkte.',                                        { trigger:'onSummon', actions:[{ type:'gainLP', target:'self', value:2000 }] }],
+    ['ZST5','Erderschütterung',RACE.STEIN,   'rare',       'Alle Gegnermonster verlieren 600 ATK dauerhaft.',                   { trigger:'onSummon', actions:[{ type:'debuffAllOpp', atkD:600, defD:0 }] }],
+    ['ZST6','Steinwelle',      RACE.STEIN,   'rare',       'Erhalte 3000 LP. Füge dem Gegner 500 Schaden zu.',                  { trigger:'onSummon', actions:[{ type:'gainLP', target:'self', value:3000 }, { type:'dealDamage', target:'opponent', value:500 }] }],
+    ['ZST7','Urstein',         RACE.STEIN,   'super_rare', 'Erhalte 4000 Lebenspunkte.',                                        { trigger:'onSummon', actions:[{ type:'gainLP', target:'self', value:4000 }] }],
     // Pflanze
-    ['ZPF1','Heilranke',       RACE.PFLANZE, 'common',     'Erhalte 800 Lebenspunkte.',                                         {apply(gs,o){gs.gainLP(o,800);}}],
-    ['ZPF2','Blütenregen',     RACE.PFLANZE, 'common',     'Erhalte 1200 Lebenspunkte. Ziehe 1 Karte.',                         {apply(gs,o){gs.gainLP(o,1200);gs.drawCard(o,1);}}],
-    ['ZPF3','Waldmagie',       RACE.PFLANZE, 'uncommon',   'Alle deine Pflanze-Monster erhalten +400 ATK bis Rundenende.',      {apply(gs,o){gs.getState()[o].field.monsters.forEach(fm=>{if(fm&&fm.card.race===RACE.PFLANZE)fm.tempATKBonus=(fm.tempATKBonus||0)+400;});}}],
-    ['ZPF4','Wurzelnetz',      RACE.PFLANZE, 'uncommon',   'Erhalte 2000 LP und ziehe 1 Karte.',                                {apply(gs,o){gs.gainLP(o,2000);gs.drawCard(o,1);}}],
-    ['ZPF5','Dornenschutz',    RACE.PFLANZE, 'rare',       'Erhalte 2500 LP.',                                                  {apply(gs,o){gs.gainLP(o,2500);}}],
-    ['ZPF6','Natur rebellen',  RACE.PFLANZE, 'rare',       'Alle deine Pflanze-Monster erhalten +700 ATK. Erhalte 500 LP.',     {apply(gs,o){gs.getState()[o].field.monsters.forEach(fm=>{if(fm&&fm.card.race===RACE.PFLANZE)fm.tempATKBonus=(fm.tempATKBonus||0)+700;});gs.gainLP(o,500);}}],
-    ['ZPF7','Urwaldmagie',     RACE.PFLANZE, 'super_rare', 'Erhalte 4000 LP. Ziehe 2 Karten.',                                  {apply(gs,o){gs.gainLP(o,4000);gs.drawCard(o,2);}}],
+    ['ZPF1','Heilranke',       RACE.PFLANZE, 'common',     'Erhalte 800 Lebenspunkte.',                                         { trigger:'onSummon', actions:[{ type:'gainLP', target:'self', value:800 }] }],
+    ['ZPF2','Blütenregen',     RACE.PFLANZE, 'common',     'Erhalte 1200 Lebenspunkte. Ziehe 1 Karte.',                         { trigger:'onSummon', actions:[{ type:'gainLP', target:'self', value:1200 }, { type:'draw', target:'self', count:1 }] }],
+    ['ZPF3','Waldmagie',       RACE.PFLANZE, 'uncommon',   'Alle deine Pflanze-Monster erhalten +400 ATK bis Rundenende.',      { trigger:'onSummon', actions:[{ type:'tempBuffAtkRace', race:RACE.PFLANZE, value:400 }] }],
+    ['ZPF4','Wurzelnetz',      RACE.PFLANZE, 'uncommon',   'Erhalte 2000 LP und ziehe 1 Karte.',                                { trigger:'onSummon', actions:[{ type:'gainLP', target:'self', value:2000 }, { type:'draw', target:'self', count:1 }] }],
+    ['ZPF5','Dornenschutz',    RACE.PFLANZE, 'rare',       'Erhalte 2500 LP.',                                                  { trigger:'onSummon', actions:[{ type:'gainLP', target:'self', value:2500 }] }],
+    ['ZPF6','Natur rebellen',  RACE.PFLANZE, 'rare',       'Alle deine Pflanze-Monster erhalten +700 ATK. Erhalte 500 LP.',     { trigger:'onSummon', actions:[{ type:'tempBuffAtkRace', race:RACE.PFLANZE, value:700 }, { type:'gainLP', target:'self', value:500 }] }],
+    ['ZPF7','Urwaldmagie',     RACE.PFLANZE, 'super_rare', 'Erhalte 4000 LP. Ziehe 2 Karten.',                                  { trigger:'onSummon', actions:[{ type:'gainLP', target:'self', value:4000 }, { type:'draw', target:'self', count:2 }] }],
     // Krieger
-    ['ZKR1','Schlachtruf',     RACE.KRIEGER, 'common',     'Alle deine Krieger-Monster erhalten bis Rundenende +500 ATK.',      {apply(gs,o){gs.getState()[o].field.monsters.forEach(fm=>{if(fm&&fm.card.race===RACE.KRIEGER)fm.tempATKBonus=(fm.tempATKBonus||0)+500;});}}],
-    ['ZKR2','Klingenmeister',  RACE.KRIEGER, 'common',     'Wähle ein Monster auf deinem Feld. Es erhält +800 ATK bis Rundenende.', {apply(gs,o){const m=gs.getState()[o].field.monsters.find(fm=>fm);if(m)m.tempATKBonus=(m.tempATKBonus||0)+800;}}],
-    ['ZKR3','Kriegertaktik',   RACE.KRIEGER, 'uncommon',   'Ziehe 2 Karten.',                                                   {apply(gs,o){gs.drawCard(o,2);}}],
-    ['ZKR4','Schlachthymne',   RACE.KRIEGER, 'uncommon',   'Alle deine Krieger erhalten +800 ATK bis Rundenende.',              {apply(gs,o){gs.getState()[o].field.monsters.forEach(fm=>{if(fm&&fm.card.race===RACE.KRIEGER)fm.tempATKBonus=(fm.tempATKBonus||0)+800;});}}],
-    ['ZKR5','Klingenregen',    RACE.KRIEGER, 'rare',       'Füge dem Gegner 800 Schaden zu. Alle Krieger +500 ATK.',            {apply(gs,o){gs.dealDamage(o==='player'?'opponent':'player',800);gs.getState()[o].field.monsters.forEach(fm=>{if(fm&&fm.card.race===RACE.KRIEGER)fm.tempATKBonus=(fm.tempATKBonus||0)+500;});}}],
-    ['ZKR6','Schlachtrausch',  RACE.KRIEGER, 'rare',       'Alle deine Krieger erhalten +1200 ATK bis Rundenende.',             {apply(gs,o){gs.getState()[o].field.monsters.forEach(fm=>{if(fm&&fm.card.race===RACE.KRIEGER)fm.tempATKBonus=(fm.tempATKBonus||0)+1200;});}}],
-    ['ZKR7','Kriegsende',      RACE.KRIEGER, 'super_rare', 'Füge dem Gegner 1500 Schaden zu. Alle Krieger +1000 ATK.',          {apply(gs,o){gs.dealDamage(o==='player'?'opponent':'player',1500);gs.getState()[o].field.monsters.forEach(fm=>{if(fm&&fm.card.race===RACE.KRIEGER)fm.tempATKBonus=(fm.tempATKBonus||0)+1000;});}}],
+    ['ZKR1','Schlachtruf',     RACE.KRIEGER, 'common',     'Alle deine Krieger-Monster erhalten bis Rundenende +500 ATK.',      { trigger:'onSummon', actions:[{ type:'tempBuffAtkRace', race:RACE.KRIEGER, value:500 }] }],
+    // ZKR2: Not expressible as descriptor — needs special handling (targets single monster, not race-based)
+    ['ZKR2','Klingenmeister',  RACE.KRIEGER, 'common',     'Wähle ein Monster auf deinem Feld. Es erhält +800 ATK bis Rundenende.', {apply(gs,o){const m=gs.getState()[o].field.monsters.find(fm=>fm);if(m)m.tempATKBonus=(m.tempATKBonus||0)+800;}} as unknown as CardEffectBlock],
+    ['ZKR3','Kriegertaktik',   RACE.KRIEGER, 'uncommon',   'Ziehe 2 Karten.',                                                   { trigger:'onSummon', actions:[{ type:'draw', target:'self', count:2 }] }],
+    ['ZKR4','Schlachthymne',   RACE.KRIEGER, 'uncommon',   'Alle deine Krieger erhalten +800 ATK bis Rundenende.',              { trigger:'onSummon', actions:[{ type:'tempBuffAtkRace', race:RACE.KRIEGER, value:800 }] }],
+    ['ZKR5','Klingenregen',    RACE.KRIEGER, 'rare',       'Füge dem Gegner 800 Schaden zu. Alle Krieger +500 ATK.',            { trigger:'onSummon', actions:[{ type:'dealDamage', target:'opponent', value:800 }, { type:'tempBuffAtkRace', race:RACE.KRIEGER, value:500 }] }],
+    ['ZKR6','Schlachtrausch',  RACE.KRIEGER, 'rare',       'Alle deine Krieger erhalten +1200 ATK bis Rundenende.',             { trigger:'onSummon', actions:[{ type:'tempBuffAtkRace', race:RACE.KRIEGER, value:1200 }] }],
+    ['ZKR7','Kriegsende',      RACE.KRIEGER, 'super_rare', 'Füge dem Gegner 1500 Schaden zu. Alle Krieger +1000 ATK.',          { trigger:'onSummon', actions:[{ type:'dealDamage', target:'opponent', value:1500 }, { type:'tempBuffAtkRace', race:RACE.KRIEGER, value:1000 }] }],
     // Magier
-    ['ZMA1','Runenziehen',     RACE.MAGIER,  'common',     'Ziehe 2 Karten.',                                                   {apply(gs,o){gs.drawCard(o,2);}}],
-    ['ZMA2','Arkanzauber',     RACE.MAGIER,  'common',     'Füge dem Gegner 500 Schaden zu. Ziehe 1 Karte.',                    {apply(gs,o){gs.dealDamage(o==='player'?'opponent':'player',500);gs.drawCard(o,1);}}],
-    ['ZMA3','Wissensquell',    RACE.MAGIER,  'uncommon',   'Ziehe 3 Karten.',                                                   {apply(gs,o){gs.drawCard(o,3);}}],
-    ['ZMA4','Magiersegen',     RACE.MAGIER,  'uncommon',   'Alle deine Magier-Monster erhalten +500 ATK bis Rundenende.',       {apply(gs,o){gs.getState()[o].field.monsters.forEach(fm=>{if(fm&&fm.card.race===RACE.MAGIER)fm.tempATKBonus=(fm.tempATKBonus||0)+500;});}}],
-    ['ZMA5','Wissensexplosion',RACE.MAGIER,  'rare',       'Ziehe 3 Karten. Füge dem Gegner 300 Schaden zu.',                   {apply(gs,o){gs.drawCard(o,3);gs.dealDamage(o==='player'?'opponent':'player',300);}}],
-    ['ZMA6','Arkanblitz',      RACE.MAGIER,  'rare',       'Füge dem Gegner 1500 Schaden zu. Ziehe 1 Karte.',                   {apply(gs,o){gs.dealDamage(o==='player'?'opponent':'player',1500);gs.drawCard(o,1);}}],
-    ['ZMA7','Omniszauber',     RACE.MAGIER,  'super_rare', 'Ziehe 4 Karten. Füge dem Gegner 500 Schaden zu.',                   {apply(gs,o){gs.drawCard(o,4);gs.dealDamage(o==='player'?'opponent':'player',500);}}],
+    ['ZMA1','Runenziehen',     RACE.MAGIER,  'common',     'Ziehe 2 Karten.',                                                   { trigger:'onSummon', actions:[{ type:'draw', target:'self', count:2 }] }],
+    ['ZMA2','Arkanzauber',     RACE.MAGIER,  'common',     'Füge dem Gegner 500 Schaden zu. Ziehe 1 Karte.',                    { trigger:'onSummon', actions:[{ type:'dealDamage', target:'opponent', value:500 }, { type:'draw', target:'self', count:1 }] }],
+    ['ZMA3','Wissensquell',    RACE.MAGIER,  'uncommon',   'Ziehe 3 Karten.',                                                   { trigger:'onSummon', actions:[{ type:'draw', target:'self', count:3 }] }],
+    ['ZMA4','Magiersegen',     RACE.MAGIER,  'uncommon',   'Alle deine Magier-Monster erhalten +500 ATK bis Rundenende.',       { trigger:'onSummon', actions:[{ type:'tempBuffAtkRace', race:RACE.MAGIER, value:500 }] }],
+    ['ZMA5','Wissensexplosion',RACE.MAGIER,  'rare',       'Ziehe 3 Karten. Füge dem Gegner 300 Schaden zu.',                   { trigger:'onSummon', actions:[{ type:'draw', target:'self', count:3 }, { type:'dealDamage', target:'opponent', value:300 }] }],
+    ['ZMA6','Arkanblitz',      RACE.MAGIER,  'rare',       'Füge dem Gegner 1500 Schaden zu. Ziehe 1 Karte.',                   { trigger:'onSummon', actions:[{ type:'dealDamage', target:'opponent', value:1500 }, { type:'draw', target:'self', count:1 }] }],
+    ['ZMA7','Omniszauber',     RACE.MAGIER,  'super_rare', 'Ziehe 4 Karten. Füge dem Gegner 500 Schaden zu.',                   { trigger:'onSummon', actions:[{ type:'draw', target:'self', count:4 }, { type:'dealDamage', target:'opponent', value:500 }] }],
     // Elfe
-    ['ZEL1','Mondsegen',       RACE.ELFE,    'common',     'Erhalte 600 LP. Alle Gegnermonster verlieren 200 ATK bis Rundenende.',{apply(gs,o){gs.gainLP(o,600);const op=o==='player'?'opponent':'player';gs.getState()[op].field.monsters.forEach(fm=>{if(fm)fm.tempATKBonus=(fm.tempATKBonus||0)-200;});}}],
-    ['ZEL2','Sternenstaub',    RACE.ELFE,    'common',     'Alle Gegnermonster verlieren 400 ATK bis Rundenende.',              {apply(gs,o){const op=o==='player'?'opponent':'player';gs.getState()[op].field.monsters.forEach(fm=>{if(fm)fm.tempATKBonus=(fm.tempATKBonus||0)-400;});}}],
-    ['ZEL3','Lichthauch',      RACE.ELFE,    'uncommon',   'Alle Gegnermonster verlieren dauerhaft 300 ATK.',                   {apply(gs,o){const op=o==='player'?'opponent':'player';gs.getState()[op].field.monsters.forEach(fm=>{if(fm)fm.permATKBonus=(fm.permATKBonus||0)-300;});}}],
-    ['ZEL4','Elfensegen',      RACE.ELFE,    'uncommon',   'Erhalte 1500 LP. Ziehe 1 Karte.',                                   {apply(gs,o){gs.gainLP(o,1500);gs.drawCard(o,1);}}],
-    ['ZEL5','Mondstrahl',      RACE.ELFE,    'rare',       'Alle Gegnermonster verlieren dauerhaft 500 ATK und 500 DEF.',       {apply(gs,o){const op=o==='player'?'opponent':'player';gs.getState()[op].field.monsters.forEach(fm=>{if(fm){fm.permATKBonus=(fm.permATKBonus||0)-500;fm.permDEFBonus=(fm.permDEFBonus||0)-500;}});}}],
-    ['ZEL6','Sternenregen',    RACE.ELFE,    'rare',       'Alle Gegnermonster verlieren dauerhaft 700 ATK.',                   {apply(gs,o){const op=o==='player'?'opponent':'player';gs.getState()[op].field.monsters.forEach(fm=>{if(fm)fm.permATKBonus=(fm.permATKBonus||0)-700;});}}],
-    ['ZEL7','Mondfinsternis',  RACE.ELFE,    'super_rare', 'Alle Gegnermonster verlieren dauerhaft 1000 ATK.',                  {apply(gs,o){const op=o==='player'?'opponent':'player';gs.getState()[op].field.monsters.forEach(fm=>{if(fm)fm.permATKBonus=(fm.permATKBonus||0)-1000;});}}],
+    ['ZEL1','Mondsegen',       RACE.ELFE,    'common',     'Erhalte 600 LP. Alle Gegnermonster verlieren 200 ATK bis Rundenende.',{ trigger:'onSummon', actions:[{ type:'gainLP', target:'self', value:600 }, { type:'tempDebuffAllOpp', atkD:200 }] }],
+    ['ZEL2','Sternenstaub',    RACE.ELFE,    'common',     'Alle Gegnermonster verlieren 400 ATK bis Rundenende.',              { trigger:'onSummon', actions:[{ type:'tempDebuffAllOpp', atkD:400 }] }],
+    ['ZEL3','Lichthauch',      RACE.ELFE,    'uncommon',   'Alle Gegnermonster verlieren dauerhaft 300 ATK.',                   { trigger:'onSummon', actions:[{ type:'debuffAllOpp', atkD:300, defD:0 }] }],
+    ['ZEL4','Elfensegen',      RACE.ELFE,    'uncommon',   'Erhalte 1500 LP. Ziehe 1 Karte.',                                   { trigger:'onSummon', actions:[{ type:'gainLP', target:'self', value:1500 }, { type:'draw', target:'self', count:1 }] }],
+    ['ZEL5','Mondstrahl',      RACE.ELFE,    'rare',       'Alle Gegnermonster verlieren dauerhaft 500 ATK und 500 DEF.',       { trigger:'onSummon', actions:[{ type:'debuffAllOpp', atkD:500, defD:500 }] }],
+    ['ZEL6','Sternenregen',    RACE.ELFE,    'rare',       'Alle Gegnermonster verlieren dauerhaft 700 ATK.',                   { trigger:'onSummon', actions:[{ type:'debuffAllOpp', atkD:700, defD:0 }] }],
+    ['ZEL7','Mondfinsternis',  RACE.ELFE,    'super_rare', 'Alle Gegnermonster verlieren dauerhaft 1000 ATK.',                  { trigger:'onSummon', actions:[{ type:'debuffAllOpp', atkD:1000, defD:0 }] }],
     // Dämon
-    ['ZDA1','Seelenpakt',      RACE.DAEMON,  'common',     'Alle deine Dämon-Monster erhalten +600 ATK bis Rundenende.',        {apply(gs,o){gs.getState()[o].field.monsters.forEach(fm=>{if(fm&&fm.card.race===RACE.DAEMON)fm.tempATKBonus=(fm.tempATKBonus||0)+600;});}}],
-    ['ZDA2','Höllenpakt',      RACE.DAEMON,  'common',     'Füge dem Gegner 800 Schaden zu.',                                   {apply(gs,o){gs.dealDamage(o==='player'?'opponent':'player',800);}}],
-    ['ZDA3','Dunkles Opfer',   RACE.DAEMON,  'uncommon',   'Alle deine Dämon-Monster erhalten dauerhaft +400 ATK.',             {apply(gs,o){gs.getState()[o].field.monsters.forEach(fm=>{if(fm&&fm.card.race===RACE.DAEMON)fm.permATKBonus=(fm.permATKBonus||0)+400;});}}],
-    ['ZDA4','Abgrundfluch',    RACE.DAEMON,  'uncommon',   'Füge dem Gegner 1200 Schaden zu.',                                  {apply(gs,o){gs.dealDamage(o==='player'?'opponent':'player',1200);}}],
-    ['ZDA5','Chaosaufstieg',   RACE.DAEMON,  'rare',       'Alle deine Dämon-Monster erhalten dauerhaft +600 ATK.',             {apply(gs,o){gs.getState()[o].field.monsters.forEach(fm=>{if(fm&&fm.card.race===RACE.DAEMON)fm.permATKBonus=(fm.permATKBonus||0)+600;});}}],
-    ['ZDA6','Höllensturm',     RACE.DAEMON,  'rare',       'Füge dem Gegner 2000 Schaden zu.',                                  {apply(gs,o){gs.dealDamage(o==='player'?'opponent':'player',2000);}}],
-    ['ZDA7','Untergang',       RACE.DAEMON,  'super_rare', 'Füge dem Gegner 2500 Schaden zu. Alle Dämon-Monster +800 ATK.',     {apply(gs,o){gs.dealDamage(o==='player'?'opponent':'player',2500);gs.getState()[o].field.monsters.forEach(fm=>{if(fm&&fm.card.race===RACE.DAEMON)fm.tempATKBonus=(fm.tempATKBonus||0)+800;});}}],
+    ['ZDA1','Seelenpakt',      RACE.DAEMON,  'common',     'Alle deine Dämon-Monster erhalten +600 ATK bis Rundenende.',        { trigger:'onSummon', actions:[{ type:'tempBuffAtkRace', race:RACE.DAEMON, value:600 }] }],
+    ['ZDA2','Höllenpakt',      RACE.DAEMON,  'common',     'Füge dem Gegner 800 Schaden zu.',                                   { trigger:'onSummon', actions:[{ type:'dealDamage', target:'opponent', value:800 }] }],
+    ['ZDA3','Dunkles Opfer',   RACE.DAEMON,  'uncommon',   'Alle deine Dämon-Monster erhalten dauerhaft +400 ATK.',             { trigger:'onSummon', actions:[{ type:'buffAtkRace', race:RACE.DAEMON, value:400 }] }],
+    ['ZDA4','Abgrundfluch',    RACE.DAEMON,  'uncommon',   'Füge dem Gegner 1200 Schaden zu.',                                  { trigger:'onSummon', actions:[{ type:'dealDamage', target:'opponent', value:1200 }] }],
+    ['ZDA5','Chaosaufstieg',   RACE.DAEMON,  'rare',       'Alle deine Dämon-Monster erhalten dauerhaft +600 ATK.',             { trigger:'onSummon', actions:[{ type:'buffAtkRace', race:RACE.DAEMON, value:600 }] }],
+    ['ZDA6','Höllensturm',     RACE.DAEMON,  'rare',       'Füge dem Gegner 2000 Schaden zu.',                                  { trigger:'onSummon', actions:[{ type:'dealDamage', target:'opponent', value:2000 }] }],
+    ['ZDA7','Untergang',       RACE.DAEMON,  'super_rare', 'Füge dem Gegner 2500 Schaden zu. Alle Dämon-Monster +800 ATK.',     { trigger:'onSummon', actions:[{ type:'dealDamage', target:'opponent', value:2500 }, { type:'tempBuffAtkRace', race:RACE.DAEMON, value:800 }] }],
     // Wasser
-    ['ZWA1','Rückzug',         RACE.WASSER,  'common',     'Spiele das Monster mit der höchsten ATK des Gegners auf dessen Hand zurück.', {apply(gs,o){const op=o==='player'?'opponent':'player';const st=gs.getState()[op].field.monsters;const idx=st.reduce<number|null>((a,b,i)=>(!b?a:(!a&&a!==0||b.card.atk!==undefined&&st[a as number]&&b.card.atk>st[a as number]!.card.atk!?i:a)),null);if(idx!==null&&st[idx]){gs.getState()[op].hand.push(st[idx]!.card);st[idx]=null;}}}],
-    ['ZWA2','Nebelbank',       RACE.WASSER,  'common',     'Erhalte 500 LP. Ziehe 1 Karte.',                                    {apply(gs,o){gs.gainLP(o,500);gs.drawCard(o,1);}}],
-    ['ZWA3','Eissturm',        RACE.WASSER,  'uncommon',   'Alle Gegnermonster verlieren 500 ATK bis Rundenende.',              {apply(gs,o){const op=o==='player'?'opponent':'player';gs.getState()[op].field.monsters.forEach(fm=>{if(fm)fm.tempATKBonus=(fm.tempATKBonus||0)-500;});}}],
-    ['ZWA4','Tiefenstrudel',   RACE.WASSER,  'uncommon',   'Füge dem Gegner 800 Schaden zu. Ziehe 1 Karte.',                    {apply(gs,o){gs.dealDamage(o==='player'?'opponent':'player',800);gs.drawCard(o,1);}}],
-    ['ZWA5','Tsunami',         RACE.WASSER,  'rare',       'Füge dem Gegner 1500 Schaden zu. Alle Gegnermonster verlieren 300 ATK.',{apply(gs,o){const op=o==='player'?'opponent':'player';gs.dealDamage(op,1500);gs.getState()[op].field.monsters.forEach(fm=>{if(fm)fm.tempATKBonus=(fm.tempATKBonus||0)-300;});}}],
-    ['ZWA6','Ozeanflut',       RACE.WASSER,  'rare',       'Spiele alle Gegnermonster auf die Hand zurück.',                    {apply(gs,o){const op=o==='player'?'opponent':'player';const st=gs.getState()[op].field.monsters;for(let i=0;i<st.length;i++){if(st[i]){gs.getState()[op].hand.push(st[i]!.card);st[i]=null;}}}}],
-    ['ZWA7','Meeresgewalt',    RACE.WASSER,  'super_rare', 'Füge dem Gegner 2500 Schaden zu. Ziehe 2 Karten.',                  {apply(gs,o){gs.dealDamage(o==='player'?'opponent':'player',2500);gs.drawCard(o,2);}}],
+    ['ZWA1','Rückzug',         RACE.WASSER,  'common',     'Spiele das Monster mit der höchsten ATK des Gegners auf dessen Hand zurück.', { trigger:'onSummon', actions:[{ type:'bounceStrongestOpp' }] }],
+    ['ZWA2','Nebelbank',       RACE.WASSER,  'common',     'Erhalte 500 LP. Ziehe 1 Karte.',                                    { trigger:'onSummon', actions:[{ type:'gainLP', target:'self', value:500 }, { type:'draw', target:'self', count:1 }] }],
+    ['ZWA3','Eissturm',        RACE.WASSER,  'uncommon',   'Alle Gegnermonster verlieren 500 ATK bis Rundenende.',              { trigger:'onSummon', actions:[{ type:'tempDebuffAllOpp', atkD:500 }] }],
+    ['ZWA4','Tiefenstrudel',   RACE.WASSER,  'uncommon',   'Füge dem Gegner 800 Schaden zu. Ziehe 1 Karte.',                    { trigger:'onSummon', actions:[{ type:'dealDamage', target:'opponent', value:800 }, { type:'draw', target:'self', count:1 }] }],
+    ['ZWA5','Tsunami',         RACE.WASSER,  'rare',       'Füge dem Gegner 1500 Schaden zu. Alle Gegnermonster verlieren 300 ATK.',{ trigger:'onSummon', actions:[{ type:'dealDamage', target:'opponent', value:1500 }, { type:'tempDebuffAllOpp', atkD:300 }] }],
+    ['ZWA6','Ozeanflut',       RACE.WASSER,  'rare',       'Spiele alle Gegnermonster auf die Hand zurück.',                    { trigger:'onSummon', actions:[{ type:'bounceAllOppMonsters' }] }],
+    ['ZWA7','Meeresgewalt',    RACE.WASSER,  'super_rare', 'Füge dem Gegner 2500 Schaden zu. Ziehe 2 Karten.',                  { trigger:'onSummon', actions:[{ type:'dealDamage', target:'opponent', value:2500 }, { type:'draw', target:'self', count:2 }] }],
   ];
 
   SPELL_ENTRIES.forEach(([id,name,race,rarity,desc,effect])=>{
@@ -672,57 +653,57 @@ function _addCard(id: string, def: CardData): void {
   });
 
   // ── 40 Fallenkarten (4 pro Rasse) ───────────────────────────
-  const TRAP_ENTRIES: [string, string, string, RarityLevel, string, string, CardEffect][] = [
+  const TRAP_ENTRIES: [string, string, string, RarityLevel, string, string, CardEffectBlock][] = [
     // Feuer
-    ['QFE1','Flammenbarriere', RACE.FEUER,   'uncommon', 'Aktiviere wenn der Gegner ein Monster beschwört: Füge dem Gegner Schaden gleich Hälfte des ATK des beschworten Monsters zu.',  'onOpponentSummon', {apply(gs,o,fc){if(fc){const d=Math.floor((fc as {card:{atk:number}}).card.atk/2);gs.dealDamage(o==='player'?'opponent':'player',d);gs.addLog(`Flammenbarriere! ${d} Schaden!`); return {cancelAttack:false};}return{};}},   ],
-    ['QFE2','Gegenfeuer',      RACE.FEUER,   'common',   'Aktiviere wenn ein Gegnermonster angreift: Füge dem Gegner 400 Schaden zu.',                                                    'onAttack',         {apply(gs,o,atk){gs.dealDamage(o==='player'?'opponent':'player',400);gs.addLog('Gegenfeuer! 400 Schaden!');return{cancelAttack:true};}},  ],
-    ['QFE3','Lavabrand',       RACE.FEUER,   'rare',     'Aktiviere wenn ein Gegnermonster angreift: Füge dem Gegner Schaden gleich der ATK des angreifenden Monsters zu.',               'onAttack',         {apply(gs,o,atk){const a=atk as {effectiveATK?:()=>number,card:{atk:number}};const d=a.effectiveATK?a.effectiveATK():a.card.atk;gs.dealDamage(o==='player'?'opponent':'player',d);gs.addLog(`Lavabrand! ${d} Schaden!`);return{cancelAttack:true};}},  ],
-    ['QFE4','Pyrosperre',      RACE.FEUER,   'super_rare','Aktiviere wenn ein Gegnermonster angreift: Negiere Angriff und füge dem Gegner 1000 Schaden zu.',                              'onAttack',         {apply(gs,o,atk){gs.dealDamage(o==='player'?'opponent':'player',1000);gs.addLog('Pyrosperre! Angriff negiert! 1000 Schaden!');return{cancelAttack:true};}}, ],
+    ['QFE1','Flammenbarriere', RACE.FEUER,   'uncommon', 'Aktiviere wenn der Gegner ein Monster beschwört: Füge dem Gegner Schaden gleich Hälfte des ATK des beschworten Monsters zu.',  'onOpponentSummon', { trigger:'onOpponentSummon', actions:[{ type:'dealDamage', target:'opponent', value:{ from:'summoned.atk', multiply:0.5, round:'floor' } }] }],
+    ['QFE2','Gegenfeuer',      RACE.FEUER,   'common',   'Aktiviere wenn ein Gegnermonster angreift: Füge dem Gegner 400 Schaden zu.',                                                    'onAttack',         { trigger:'onAttack', actions:[{ type:'dealDamage', target:'opponent', value:400 }, { type:'cancelAttack' }] }],
+    ['QFE3','Lavabrand',       RACE.FEUER,   'rare',     'Aktiviere wenn ein Gegnermonster angreift: Füge dem Gegner Schaden gleich der ATK des angreifenden Monsters zu.',               'onAttack',         { trigger:'onAttack', actions:[{ type:'dealDamage', target:'opponent', value:{ from:'attacker.effectiveATK', multiply:1, round:'floor' } }, { type:'cancelAttack' }] }],
+    ['QFE4','Pyrosperre',      RACE.FEUER,   'super_rare','Aktiviere wenn ein Gegnermonster angreift: Negiere Angriff und füge dem Gegner 1000 Schaden zu.',                              'onAttack',         { trigger:'onAttack', actions:[{ type:'dealDamage', target:'opponent', value:1000 }, { type:'cancelAttack' }] }],
     // Drache
-    ['QDR1','Drachenwut',      RACE.DRACHE,  'common',   'Aktiviere wenn eines deiner Monster angegriffen wird: Es erhält bis Kampfende +1000 ATK.',                                      'onOwnMonsterAttacked',{apply(gs,o,atk,def){if(def)(def as {tempATKBonus:number}).tempATKBonus=((def as {tempATKBonus:number}).tempATKBonus||0)+1000;gs.addLog('Drachenwut! +1000 ATK!');return{};}},  ],
-    ['QDR2','Schuppenwand',    RACE.DRACHE,  'uncommon', 'Aktiviere wenn ein Gegnermonster angreift: Negiere den Angriff.',                                                               'onAttack',         {apply(gs,o,atk){gs.addLog('Schuppenwand! Angriff negiert!');return{cancelAttack:true};}},  ],
-    ['QDR3','Wyrmfalle',       RACE.DRACHE,  'rare',     'Aktiviere wenn der Gegner ein Monster beschwört: Zerstöre es wenn ATK ≥ 2000.',                                                'onOpponentSummon', {apply(gs,o,fc){if(fc&&(fc as {card:{atk:number}}).card.atk>=2000){gs.addLog(`Wyrmfalle! ${(fc as {card:{name:string}}).card.name} zerstört!`);return{destroySummoned:true};}return{};}},  ],
-    ['QDR4','Drachenfalle',    RACE.DRACHE,  'super_rare','Aktiviere wenn ein Gegnermonster angreift: Zerstöre das angreifende Monster.',                                                 'onAttack',         {apply(gs,o,atk){gs.addLog(`Drachenfalle! ${(atk as {card:{name:string}}).card.name} zerstört!`);return{cancelAttack:true,destroyAttacker:true};}}, ],
+    ['QDR1','Drachenwut',      RACE.DRACHE,  'common',   'Aktiviere wenn eines deiner Monster angegriffen wird: Es erhält bis Kampfende +1000 ATK.',                                      'onOwnMonsterAttacked', { trigger:'onOwnMonsterAttacked', actions:[{ type:'tempAtkBonus', target:'defender', value:1000 }] }],
+    ['QDR2','Schuppenwand',    RACE.DRACHE,  'uncommon', 'Aktiviere wenn ein Gegnermonster angreift: Negiere den Angriff.',                                                               'onAttack',         { trigger:'onAttack', actions:[{ type:'cancelAttack' }] }],
+    ['QDR3','Wyrmfalle',       RACE.DRACHE,  'rare',     'Aktiviere wenn der Gegner ein Monster beschwört: Zerstöre es wenn ATK ≥ 2000.',                                                'onOpponentSummon', { trigger:'onOpponentSummon', actions:[{ type:'destroySummonedIf', minAtk:2000 }] }],
+    ['QDR4','Drachenfalle',    RACE.DRACHE,  'super_rare','Aktiviere wenn ein Gegnermonster angreift: Zerstöre das angreifende Monster.',                                                 'onAttack',         { trigger:'onAttack', actions:[{ type:'destroyAttacker' }] }],
     // Flug
-    ['QFL1','Windschild',      RACE.FLUG,    'common',   'Aktiviere wenn eines deiner Monster angegriffen wird: Negiere den Angriff.',                                                    'onOwnMonsterAttacked',{apply(gs,o){gs.addLog('Windschild! Angriff negiert!');return{cancelAttack:true};}},  ],
-    ['QFL2','Federsenke',      RACE.FLUG,    'uncommon', 'Aktiviere wenn ein Gegnermonster angreift: Es verliert bis Kampfende 800 ATK.',                                                'onAttack',         {apply(gs,o,atk){if(atk)(atk as {tempATKBonus:number}).tempATKBonus=((atk as {tempATKBonus:number}).tempATKBonus||0)-800;gs.addLog('Federsenke! -800 ATK!');return{};}},  ],
-    ['QFL3','Sturmfalle',      RACE.FLUG,    'rare',     'Aktiviere wenn der Gegner ein Monster beschwört: Es verliert dauerhaft 500 ATK.',                                              'onOpponentSummon', {apply(gs,o,fc){if(fc){(fc as {permATKBonus:number}).permATKBonus=((fc as {permATKBonus:number}).permATKBonus||0)-500;gs.addLog(`Sturmfalle! ${(fc as {card:{name:string}}).card.name} -500 ATK!`);}return{};}},  ],
-    ['QFL4','Luftloch',        RACE.FLUG,    'super_rare','Aktiviere wenn ein Gegnermonster angreift: Negiere Angriff. Gegner verliert 500 LP.',                                          'onAttack',         {apply(gs,o,atk){gs.dealDamage(o==='player'?'opponent':'player',500);gs.addLog('Luftloch! Angriff negiert! 500 Schaden!');return{cancelAttack:true};}}, ],
+    ['QFL1','Windschild',      RACE.FLUG,    'common',   'Aktiviere wenn eines deiner Monster angegriffen wird: Negiere den Angriff.',                                                    'onOwnMonsterAttacked', { trigger:'onOwnMonsterAttacked', actions:[{ type:'cancelAttack' }] }],
+    ['QFL2','Federsenke',      RACE.FLUG,    'uncommon', 'Aktiviere wenn ein Gegnermonster angreift: Es verliert bis Kampfende 800 ATK.',                                                'onAttack',         { trigger:'onAttack', actions:[{ type:'tempAtkBonus', target:'attacker', value:-800 }] }],
+    ['QFL3','Sturmfalle',      RACE.FLUG,    'rare',     'Aktiviere wenn der Gegner ein Monster beschwört: Es verliert dauerhaft 500 ATK.',                                              'onOpponentSummon', { trigger:'onOpponentSummon', actions:[{ type:'permAtkBonus', target:'summonedFC', value:-500 }] }],
+    ['QFL4','Luftloch',        RACE.FLUG,    'super_rare','Aktiviere wenn ein Gegnermonster angreift: Negiere Angriff. Gegner verliert 500 LP.',                                          'onAttack',         { trigger:'onAttack', actions:[{ type:'dealDamage', target:'opponent', value:500 }, { type:'cancelAttack' }] }],
     // Stein
-    ['QST1','Steinwall',       RACE.STEIN,   'common',   'Aktiviere wenn eines deiner Monster angegriffen wird: Es erhält bis Kampfende +1500 DEF.',                                     'onOwnMonsterAttacked',{apply(gs,o,atk,def){if(def)(def as {tempDEFBonus:number}).tempDEFBonus=((def as {tempDEFBonus:number}).tempDEFBonus||0)+1500;gs.addLog('Steinwall! +1500 DEF!');return{};}},  ],
-    ['QST2','Felssperre',      RACE.STEIN,   'uncommon', 'Aktiviere wenn ein Gegnermonster angreift: Negiere den Angriff.',                                                               'onAttack',         {apply(gs,o){gs.addLog('Felssperre! Angriff negiert!');return{cancelAttack:true};}},  ],
-    ['QST3','Erdbebenfall',    RACE.STEIN,   'rare',     'Aktiviere wenn der Gegner ein Monster beschwört: Alle Gegnermonster verlieren 400 ATK dauerhaft.',                              'onOpponentSummon', {apply(gs,o){const op=o==='player'?'opponent':'player';gs.getState()[op].field.monsters.forEach(fm=>{if(fm)fm.permATKBonus=(fm.permATKBonus||0)-400;});gs.addLog('Erdbebenfall! Alle Gegner -400 ATK!');return{};}},  ],
-    ['QST4','Granitkäfig',     RACE.STEIN,   'super_rare','Aktiviere wenn ein Gegnermonster angreift: Negiere Angriff. Das angreifende Monster verliert 1000 ATK dauerhaft.',             'onAttack',         {apply(gs,o,atk){if(atk)(atk as {permATKBonus:number}).permATKBonus=((atk as {permATKBonus:number}).permATKBonus||0)-1000;gs.addLog('Granitkäfig! Angriff negiert! -1000 ATK dauerhaft!');return{cancelAttack:true};}}, ],
+    ['QST1','Steinwall',       RACE.STEIN,   'common',   'Aktiviere wenn eines deiner Monster angegriffen wird: Es erhält bis Kampfende +1500 DEF.',                                     'onOwnMonsterAttacked', { trigger:'onOwnMonsterAttacked', actions:[{ type:'tempDefBonus', target:'defender', value:1500 }] }],
+    ['QST2','Felssperre',      RACE.STEIN,   'uncommon', 'Aktiviere wenn ein Gegnermonster angreift: Negiere den Angriff.',                                                               'onAttack',         { trigger:'onAttack', actions:[{ type:'cancelAttack' }] }],
+    ['QST3','Erdbebenfall',    RACE.STEIN,   'rare',     'Aktiviere wenn der Gegner ein Monster beschwört: Alle Gegnermonster verlieren 400 ATK dauerhaft.',                              'onOpponentSummon', { trigger:'onOpponentSummon', actions:[{ type:'debuffAllOpp', atkD:400, defD:0 }] }],
+    ['QST4','Granitkäfig',     RACE.STEIN,   'super_rare','Aktiviere wenn ein Gegnermonster angreift: Negiere Angriff. Das angreifende Monster verliert 1000 ATK dauerhaft.',             'onAttack',         { trigger:'onAttack', actions:[{ type:'permAtkBonus', target:'attacker', value:-1000 }, { type:'cancelAttack' }] }],
     // Pflanze
-    ['QPF1','Dornenschild',    RACE.PFLANZE, 'common',   'Aktiviere wenn eines deiner Monster angegriffen wird: Erhalte 500 LP.',                                                        'onOwnMonsterAttacked',{apply(gs,o){gs.gainLP(o,500);gs.addLog('Dornenschild! +500 LP!');return{};}},  ],
-    ['QPF2','Heilrankenfall',  RACE.PFLANZE, 'uncommon', 'Aktiviere wenn ein Gegnermonster angreift: Negiere den Angriff. Erhalte 800 LP.',                                              'onAttack',         {apply(gs,o){gs.gainLP(o,800);gs.addLog('Heilrankenfall! Angriff negiert! +800 LP!');return{cancelAttack:true};}},  ],
-    ['QPF3','Rankensperre',    RACE.PFLANZE, 'rare',     'Aktiviere wenn der Gegner ein Monster beschwört: Es verliert dauerhaft 600 ATK.',                                              'onOpponentSummon', {apply(gs,o,fc){if(fc){(fc as {permATKBonus:number}).permATKBonus=((fc as {permATKBonus:number}).permATKBonus||0)-600;gs.addLog(`Rankensperre! ${(fc as {card:{name:string}}).card.name} -600 ATK!`);}return{};}},  ],
-    ['QPF4','Moossog',         RACE.PFLANZE, 'super_rare','Aktiviere wenn ein Gegnermonster angreift: Negiere Angriff. Erhalte LP gleich ATK des angreifenden Monsters ÷ 2.',             'onAttack',         {apply(gs,o,atk){const a=atk as {effectiveATK?:()=>number,card:{atk:number}};const h=Math.floor((a.effectiveATK?a.effectiveATK():a.card.atk)/2);gs.gainLP(o,h);gs.addLog(`Moossog! Angriff negiert! +${h} LP!`);return{cancelAttack:true};}}, ],
+    ['QPF1','Dornenschild',    RACE.PFLANZE, 'common',   'Aktiviere wenn eines deiner Monster angegriffen wird: Erhalte 500 LP.',                                                        'onOwnMonsterAttacked', { trigger:'onOwnMonsterAttacked', actions:[{ type:'gainLP', target:'self', value:500 }] }],
+    ['QPF2','Heilrankenfall',  RACE.PFLANZE, 'uncommon', 'Aktiviere wenn ein Gegnermonster angreift: Negiere den Angriff. Erhalte 800 LP.',                                              'onAttack',         { trigger:'onAttack', actions:[{ type:'gainLP', target:'self', value:800 }, { type:'cancelAttack' }] }],
+    ['QPF3','Rankensperre',    RACE.PFLANZE, 'rare',     'Aktiviere wenn der Gegner ein Monster beschwört: Es verliert dauerhaft 600 ATK.',                                              'onOpponentSummon', { trigger:'onOpponentSummon', actions:[{ type:'permAtkBonus', target:'summonedFC', value:-600 }] }],
+    ['QPF4','Moossog',         RACE.PFLANZE, 'super_rare','Aktiviere wenn ein Gegnermonster angreift: Negiere Angriff. Erhalte LP gleich ATK des angreifenden Monsters ÷ 2.',             'onAttack',         { trigger:'onAttack', actions:[{ type:'gainLP', target:'self', value:{ from:'attacker.effectiveATK', multiply:0.5, round:'floor' } }, { type:'cancelAttack' }] }],
     // Krieger
-    ['QKR1','Kampfruf',        RACE.KRIEGER, 'common',   'Aktiviere wenn eines deiner Monster angegriffen wird: Es erhält bis Kampfende +800 ATK.',                                      'onOwnMonsterAttacked',{apply(gs,o,atk,def){if(def)(def as {tempATKBonus:number}).tempATKBonus=((def as {tempATKBonus:number}).tempATKBonus||0)+800;gs.addLog('Kampfruf! +800 ATK!');return{};}},  ],
-    ['QKR2','Gegenwehr',       RACE.KRIEGER, 'uncommon', 'Aktiviere wenn ein Gegnermonster angreift: Negiere den Angriff.',                                                               'onAttack',         {apply(gs,o){gs.addLog('Gegenwehr! Angriff negiert!');return{cancelAttack:true};}},  ],
-    ['QKR3','Klingensperre',   RACE.KRIEGER, 'rare',     'Aktiviere wenn der Gegner ein Monster beschwört: Es verliert dauerhaft 500 ATK.',                                              'onOpponentSummon', {apply(gs,o,fc){if(fc){(fc as {permATKBonus:number}).permATKBonus=((fc as {permATKBonus:number}).permATKBonus||0)-500;gs.addLog(`Klingensperre! ${(fc as {card:{name:string}}).card.name} -500 ATK!`);}return{};}},  ],
-    ['QKR4','Heldenfalle',     RACE.KRIEGER, 'super_rare','Aktiviere wenn ein Gegnermonster angreift: Es verliert bis Kampfende 1500 ATK.',                                              'onAttack',         {apply(gs,o,atk){if(atk)(atk as {tempATKBonus:number}).tempATKBonus=((atk as {tempATKBonus:number}).tempATKBonus||0)-1500;gs.addLog('Heldenfalle! -1500 ATK!');return{};}}, ],
+    ['QKR1','Kampfruf',        RACE.KRIEGER, 'common',   'Aktiviere wenn eines deiner Monster angegriffen wird: Es erhält bis Kampfende +800 ATK.',                                      'onOwnMonsterAttacked', { trigger:'onOwnMonsterAttacked', actions:[{ type:'tempAtkBonus', target:'defender', value:800 }] }],
+    ['QKR2','Gegenwehr',       RACE.KRIEGER, 'uncommon', 'Aktiviere wenn ein Gegnermonster angreift: Negiere den Angriff.',                                                               'onAttack',         { trigger:'onAttack', actions:[{ type:'cancelAttack' }] }],
+    ['QKR3','Klingensperre',   RACE.KRIEGER, 'rare',     'Aktiviere wenn der Gegner ein Monster beschwört: Es verliert dauerhaft 500 ATK.',                                              'onOpponentSummon', { trigger:'onOpponentSummon', actions:[{ type:'permAtkBonus', target:'summonedFC', value:-500 }] }],
+    ['QKR4','Heldenfalle',     RACE.KRIEGER, 'super_rare','Aktiviere wenn ein Gegnermonster angreift: Es verliert bis Kampfende 1500 ATK.',                                              'onAttack',         { trigger:'onAttack', actions:[{ type:'tempAtkBonus', target:'attacker', value:-1500 }] }],
     // Magier
-    ['QMA1','Runensperre',     RACE.MAGIER,  'common',   'Aktiviere wenn ein Gegnermonster angreift: Ziehe 1 Karte.',                                                                    'onAttack',         {apply(gs,o){gs.drawCard(o,1);gs.addLog('Runensperre! +1 Karte!');return{};}},  ],
-    ['QMA2','Arkanfalle',      RACE.MAGIER,  'uncommon', 'Aktiviere wenn der Gegner ein Monster beschwört: Ziehe 1 Karte. Gegner verliert 300 LP.',                                      'onOpponentSummon', {apply(gs,o,fc){gs.drawCard(o,1);gs.dealDamage(o==='player'?'opponent':'player',300);gs.addLog('Arkanfalle! +1 Karte, 300 Schaden!');return{};}},  ],
-    ['QMA3','Wissensfalle',    RACE.MAGIER,  'rare',     'Aktiviere wenn ein Gegnermonster angreift: Negiere Angriff. Ziehe 2 Karten.',                                                  'onAttack',         {apply(gs,o){gs.drawCard(o,2);gs.addLog('Wissensfalle! Angriff negiert! +2 Karten!');return{cancelAttack:true};}},  ],
-    ['QMA4','Magiersperre',    RACE.MAGIER,  'super_rare','Aktiviere wenn der Gegner ein Monster beschwört: Es verliert dauerhaft 800 ATK. Ziehe 2 Karten.',                             'onOpponentSummon', {apply(gs,o,fc){if(fc)(fc as {permATKBonus:number}).permATKBonus=((fc as {permATKBonus:number}).permATKBonus||0)-800;gs.drawCard(o,2);gs.addLog('Magiersperre! -800 ATK, +2 Karten!');return{};}}, ],
+    ['QMA1','Runensperre',     RACE.MAGIER,  'common',   'Aktiviere wenn ein Gegnermonster angreift: Ziehe 1 Karte.',                                                                    'onAttack',         { trigger:'onAttack', actions:[{ type:'draw', target:'self', count:1 }] }],
+    ['QMA2','Arkanfalle',      RACE.MAGIER,  'uncommon', 'Aktiviere wenn der Gegner ein Monster beschwört: Ziehe 1 Karte. Gegner verliert 300 LP.',                                      'onOpponentSummon', { trigger:'onOpponentSummon', actions:[{ type:'draw', target:'self', count:1 }, { type:'dealDamage', target:'opponent', value:300 }] }],
+    ['QMA3','Wissensfalle',    RACE.MAGIER,  'rare',     'Aktiviere wenn ein Gegnermonster angreift: Negiere Angriff. Ziehe 2 Karten.',                                                  'onAttack',         { trigger:'onAttack', actions:[{ type:'draw', target:'self', count:2 }, { type:'cancelAttack' }] }],
+    ['QMA4','Magiersperre',    RACE.MAGIER,  'super_rare','Aktiviere wenn der Gegner ein Monster beschwört: Es verliert dauerhaft 800 ATK. Ziehe 2 Karten.',                             'onOpponentSummon', { trigger:'onOpponentSummon', actions:[{ type:'permAtkBonus', target:'summonedFC', value:-800 }, { type:'draw', target:'self', count:2 }] }],
     // Elfe
-    ['QEL1','Elfenzauber',     RACE.ELFE,    'common',   'Aktiviere wenn ein Gegnermonster angreift: Es verliert bis Kampfende 600 ATK.',                                                'onAttack',         {apply(gs,o,atk){if(atk)(atk as {tempATKBonus:number}).tempATKBonus=((atk as {tempATKBonus:number}).tempATKBonus||0)-600;gs.addLog('Elfenzauber! -600 ATK!');return{};}},  ],
-    ['QEL2','Mondfalle',       RACE.ELFE,    'uncommon', 'Aktiviere wenn der Gegner ein Monster beschwört: Es verliert dauerhaft 400 ATK und 400 DEF.',                                  'onOpponentSummon', {apply(gs,o,fc){if(fc){(fc as {permATKBonus:number,permDEFBonus:number}).permATKBonus=((fc as {permATKBonus:number}).permATKBonus||0)-400;(fc as {permDEFBonus:number}).permDEFBonus=((fc as {permDEFBonus:number}).permDEFBonus||0)-400;}gs.addLog('Mondfalle! -400 ATK/-400 DEF!');return{};}},  ],
-    ['QEL3','Sternenfalle',    RACE.ELFE,    'rare',     'Aktiviere wenn ein Gegnermonster angreift: Negiere Angriff. Es verliert dauerhaft 500 ATK.',                                   'onAttack',         {apply(gs,o,atk){if(atk)(atk as {permATKBonus:number}).permATKBonus=((atk as {permATKBonus:number}).permATKBonus||0)-500;gs.addLog('Sternenfalle! Angriff negiert! -500 ATK dauerhaft!');return{cancelAttack:true};}},  ],
-    ['QEL4','Lichtfalle',      RACE.ELFE,    'super_rare','Aktiviere wenn der Gegner ein Monster beschwört: Es verliert dauerhaft 800 ATK und 800 DEF.',                                 'onOpponentSummon', {apply(gs,o,fc){if(fc){(fc as {permATKBonus:number,permDEFBonus:number}).permATKBonus=((fc as {permATKBonus:number}).permATKBonus||0)-800;(fc as {permDEFBonus:number}).permDEFBonus=((fc as {permDEFBonus:number}).permDEFBonus||0)-800;}gs.addLog('Lichtfalle! -800 ATK/-800 DEF!');return{};}}, ],
+    ['QEL1','Elfenzauber',     RACE.ELFE,    'common',   'Aktiviere wenn ein Gegnermonster angreift: Es verliert bis Kampfende 600 ATK.',                                                'onAttack',         { trigger:'onAttack', actions:[{ type:'tempAtkBonus', target:'attacker', value:-600 }] }],
+    ['QEL2','Mondfalle',       RACE.ELFE,    'uncommon', 'Aktiviere wenn der Gegner ein Monster beschwört: Es verliert dauerhaft 400 ATK und 400 DEF.',                                  'onOpponentSummon', { trigger:'onOpponentSummon', actions:[{ type:'permAtkBonus', target:'summonedFC', value:-400 }, { type:'permDefBonus', target:'summonedFC', value:-400 }] }],
+    ['QEL3','Sternenfalle',    RACE.ELFE,    'rare',     'Aktiviere wenn ein Gegnermonster angreift: Negiere Angriff. Es verliert dauerhaft 500 ATK.',                                   'onAttack',         { trigger:'onAttack', actions:[{ type:'permAtkBonus', target:'attacker', value:-500 }, { type:'cancelAttack' }] }],
+    ['QEL4','Lichtfalle',      RACE.ELFE,    'super_rare','Aktiviere wenn der Gegner ein Monster beschwört: Es verliert dauerhaft 800 ATK und 800 DEF.',                                 'onOpponentSummon', { trigger:'onOpponentSummon', actions:[{ type:'permAtkBonus', target:'summonedFC', value:-800 }, { type:'permDefBonus', target:'summonedFC', value:-800 }] }],
     // Dämon
-    ['QDA1','Seelenfalle',     RACE.DAEMON,  'common',   'Aktiviere wenn ein Gegnermonster angreift: Füge dem Gegner 500 Schaden zu.',                                                   'onAttack',         {apply(gs,o,atk){gs.dealDamage(o==='player'?'opponent':'player',500);gs.addLog('Seelenfalle! 500 Schaden!');return{};}},  ],
-    ['QDA2','Höllenfalle',     RACE.DAEMON,  'uncommon', 'Aktiviere wenn der Gegner ein Monster beschwört: Füge dem Gegner 400 Schaden zu.',                                             'onOpponentSummon', {apply(gs,o){gs.dealDamage(o==='player'?'opponent':'player',400);gs.addLog('Höllenfalle! 400 Schaden!');return{};}},  ],
-    ['QDA3','Abgrundfalle',    RACE.DAEMON,  'rare',     'Aktiviere wenn ein Gegnermonster angreift: Negiere Angriff. Füge dem Gegner 800 Schaden zu.',                                  'onAttack',         {apply(gs,o,atk){gs.dealDamage(o==='player'?'opponent':'player',800);gs.addLog('Abgrundfalle! Angriff negiert! 800 Schaden!');return{cancelAttack:true};}},  ],
-    ['QDA4','Chaosfalle',      RACE.DAEMON,  'super_rare','Aktiviere wenn ein Gegnermonster angreift: Zerstöre es. Füge dem Gegner 500 Schaden zu.',                                     'onAttack',         {apply(gs,o,atk){gs.dealDamage(o==='player'?'opponent':'player',500);gs.addLog('Chaosfalle! Monster zerstört! 500 Schaden!');return{cancelAttack:true,destroyAttacker:true};}}, ],
+    ['QDA1','Seelenfalle',     RACE.DAEMON,  'common',   'Aktiviere wenn ein Gegnermonster angreift: Füge dem Gegner 500 Schaden zu.',                                                   'onAttack',         { trigger:'onAttack', actions:[{ type:'dealDamage', target:'opponent', value:500 }] }],
+    ['QDA2','Höllenfalle',     RACE.DAEMON,  'uncommon', 'Aktiviere wenn der Gegner ein Monster beschwört: Füge dem Gegner 400 Schaden zu.',                                             'onOpponentSummon', { trigger:'onOpponentSummon', actions:[{ type:'dealDamage', target:'opponent', value:400 }] }],
+    ['QDA3','Abgrundfalle',    RACE.DAEMON,  'rare',     'Aktiviere wenn ein Gegnermonster angreift: Negiere Angriff. Füge dem Gegner 800 Schaden zu.',                                  'onAttack',         { trigger:'onAttack', actions:[{ type:'dealDamage', target:'opponent', value:800 }, { type:'cancelAttack' }] }],
+    ['QDA4','Chaosfalle',      RACE.DAEMON,  'super_rare','Aktiviere wenn ein Gegnermonster angreift: Zerstöre es. Füge dem Gegner 500 Schaden zu.',                                     'onAttack',         { trigger:'onAttack', actions:[{ type:'dealDamage', target:'opponent', value:500 }, { type:'destroyAttacker' }] }],
     // Wasser
-    ['QWA1','Strudelfalle',    RACE.WASSER,  'common',   'Aktiviere wenn ein Gegnermonster angreift: Es verliert bis Kampfende 500 ATK.',                                                'onAttack',         {apply(gs,o,atk){if(atk)(atk as {tempATKBonus:number}).tempATKBonus=((atk as {tempATKBonus:number}).tempATKBonus||0)-500;gs.addLog('Strudelfalle! -500 ATK!');return{};}},  ],
-    ['QWA2','Eisfalle',        RACE.WASSER,  'uncommon', 'Aktiviere wenn der Gegner ein Monster beschwört: Es verliert dauerhaft 400 ATK.',                                              'onOpponentSummon', {apply(gs,o,fc){if(fc)(fc as {permATKBonus:number}).permATKBonus=((fc as {permATKBonus:number}).permATKBonus||0)-400;gs.addLog(`Eisfalle! ${fc?(fc as {card:{name:string}}).card.name:''} -400 ATK!`);return{};}},  ],
-    ['QWA3','Tiefseefalle',    RACE.WASSER,  'rare',     'Aktiviere wenn ein Gegnermonster angreift: Negiere Angriff. Spiele es auf die Hand zurück.',                                   'onAttack',         {apply(gs,o,atk){const op=o==='player'?'opponent':'player';if(atk){const fc=atk as {card:CardData};gs.getState()[op].hand.push(fc.card);const st=gs.getState()[op].field.monsters;const i=st.indexOf(atk as never);if(i!==-1)st[i]=null;}gs.addLog('Tiefseefalle! Monster auf Hand zurückgespielt!');return{cancelAttack:true};}},  ],
-    ['QWA4','Ozeanfalle',      RACE.WASSER,  'super_rare','Aktiviere wenn ein Gegnermonster angreift: Negiere Angriff. Alle Gegnermonster auf die Hand zurück.',                         'onAttack',         {apply(gs,o,atk){const op=o==='player'?'opponent':'player';const st=gs.getState()[op].field.monsters;for(let i=0;i<st.length;i++){if(st[i]){gs.getState()[op].hand.push(st[i]!.card);st[i]=null;}}gs.addLog('Ozeanfalle! Alle Gegnermonster zurückgespielt!');return{cancelAttack:true};}}, ],
+    ['QWA1','Strudelfalle',    RACE.WASSER,  'common',   'Aktiviere wenn ein Gegnermonster angreift: Es verliert bis Kampfende 500 ATK.',                                                'onAttack',         { trigger:'onAttack', actions:[{ type:'tempAtkBonus', target:'attacker', value:-500 }] }],
+    ['QWA2','Eisfalle',        RACE.WASSER,  'uncommon', 'Aktiviere wenn der Gegner ein Monster beschwört: Es verliert dauerhaft 400 ATK.',                                              'onOpponentSummon', { trigger:'onOpponentSummon', actions:[{ type:'permAtkBonus', target:'summonedFC', value:-400 }] }],
+    ['QWA3','Tiefseefalle',    RACE.WASSER,  'rare',     'Aktiviere wenn ein Gegnermonster angreift: Negiere Angriff. Spiele es auf die Hand zurück.',                                   'onAttack',         { trigger:'onAttack', actions:[{ type:'bounceAttacker' }, { type:'cancelAttack' }] }],
+    ['QWA4','Ozeanfalle',      RACE.WASSER,  'super_rare','Aktiviere wenn ein Gegnermonster angreift: Negiere Angriff. Alle Gegnermonster auf die Hand zurück.',                         'onAttack',         { trigger:'onAttack', actions:[{ type:'bounceAllOppMonsters' }, { type:'cancelAttack' }] }],
   ];
 
   TRAP_ENTRIES.forEach(([id,name,race,rarity,desc,trapTrigger,effect])=>{
