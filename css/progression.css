@@ -1,5 +1,5 @@
 /* ============================================================
-   AETHERIAL CLASH - Progression Styles
+   ECHOES OF SANGUO - Progression Styles
    Gegnerauswahl, Result-Coins, Münzanzeige
    ============================================================ */
 @import './animations.css';
@@ -24,14 +24,14 @@
 /* ── "Gegner wählen" Button im Ergebnis-Screen ──────────── */
 #btn-choose-opponent {
   background: #000000;
-  border-color: #4060a0;
-  color: #8090c0;
+  border-color: #2a7040;
+  color: #608070;
   border-radius: 0;
   box-shadow: none;
 }
 
 #btn-choose-opponent:hover {
-  background: #1a2a4a;
-  color: #b0c0e0;
+  background: #0e2a1a;
+  color: #90c0a0;
 }
 

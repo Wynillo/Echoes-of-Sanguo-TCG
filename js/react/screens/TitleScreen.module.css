@@ -1,36 +1,61 @@
 .screen {
   position: fixed; inset: 0;
-  display: flex; align-items: center; justify-content: center;
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
   background: #080c18;
   z-index: 100;
 }
 
+.header {
+  position: absolute; top: 40px; left: 0; right: 0;
+  z-index: 1;
+  text-align: center;
+}
+
 .content {
-  position: relative; z-index: 1;
-  text-align: center; padding: 40px;
+  position: absolute; bottom: 0; left: 0; right: 0;
+  z-index: 1;
+  text-align: center; padding: 20px 40px 50px;
 }
 
 .gameTitle {
-  font-size: 24px;
+  font-size: 16px;
   letter-spacing: 2px;
   color: var(--gold-light);
-  text-shadow: 2px 2px 0 #000;
+  text-shadow: 2px 2px 8px #000, 0 0 20px rgba(0,0,0,0.9);
   font-family: 'Press Start 2P', monospace;
   line-height: 1.1;
   margin: 10px 0;
+  white-space: nowrap;
 }
 
 .subtitle {
   font-size: 0.875rem; letter-spacing: 3px;
-  color: var(--text-dim); margin: 10px 0 30px;
+  color: #e0d0b0; margin: 10px 0 30px;
+  text-shadow: 1px 1px 4px #000;
 }
 
 .menu {
   display: flex; flex-direction: column;
   align-items: center; gap: 12px; margin-top: 20px;
+  background: rgba(0, 10, 5, 0.5);
+  padding: 20px 30px;
+  border-radius: 4px;
+  backdrop-filter: blur(2px);
 }
 
-.menu :global(.btn-primary),
+.menu :global(.btn-primary) {
+  width: 220px; text-align: center;
+  background: rgba(20, 100, 50, 0.55);
+  border-color: rgba(40, 160, 80, 0.7) rgba(8, 40, 20, 0.7) rgba(8, 40, 20, 0.7) rgba(40, 160, 80, 0.7);
+}
+.menu :global(.btn-primary):hover {
+  background: rgba(25, 115, 60, 0.7);
+}
 .menu :global(.btn-secondary) {
   width: 220px; text-align: center;
+  background: rgba(10, 55, 25, 0.5);
+  border-color: rgba(20, 90, 45, 0.7) rgba(5, 25, 12, 0.7) rgba(5, 25, 12, 0.7) rgba(20, 90, 45, 0.7);
+}
+.menu :global(.btn-secondary):hover {
+  background: rgba(15, 70, 35, 0.65);
 }

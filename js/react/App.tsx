@@ -8,6 +8,7 @@ import { GameProvider } from './contexts/GameContext.js';
 import { ErrorBoundary } from './components/ErrorBoundary.js';
 import { useAudioInit } from './hooks/useAudio.js';
 
+import PressStartScreen from './screens/PressStartScreen.js';
 import TitleScreen      from './screens/TitleScreen.js';
 import StarterScreen    from './screens/StarterScreen.js';
 import OpponentScreen   from './screens/OpponentScreen.js';
@@ -27,6 +28,7 @@ function Router() {
   useAudioInit();
   return (
     <>
+      {screen === 'press-start'  && <PressStartScreen />}
       {screen === 'title'        && <TitleScreen />}
       {screen === 'starter'      && <StarterScreen />}
       {screen === 'opponent'     && <OpponentScreen />}

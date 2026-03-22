@@ -3,6 +3,7 @@ import { gsap } from 'gsap';
 import { Audio } from '../../audio.js';
 
 export type Screen =
+  | 'press-start'
   | 'title'
   | 'starter'
   | 'opponent'
@@ -19,7 +20,7 @@ interface ScreenCtx {
   navigateTo: (s: Screen) => void;
 }
 
-const ScreenContext = createContext<ScreenCtx>({ screen: 'title', setScreen: () => {}, navigateTo: () => {} });
+const ScreenContext = createContext<ScreenCtx>({ screen: 'press-start', setScreen: () => {}, navigateTo: () => {} });
 
 const SCREEN_MUSIC: Partial<Record<Screen, string>> = {
   title:          'music_title',
@@ -34,7 +35,7 @@ const SCREEN_MUSIC: Partial<Record<Screen, string>> = {
 };
 
 export function ScreenProvider({ children }: { children: React.ReactNode }) {
-  const [screen, setScreen] = useState<Screen>('title');
+  const [screen, setScreen] = useState<Screen>('press-start');
 
   function navigateTo(s: Screen) {
     const overlay = document.getElementById('screen-transition-overlay');

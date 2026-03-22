@@ -13,10 +13,6 @@ export default function TitleScreen() {
   const hasSave = !Progression.isFirstLaunch();
 
   function handleNewGame() {
-    if (hasSave) {
-      const ok = window.confirm(t('title.confirm_new_game'));
-      if (!ok) return;
-    }
     Progression.backupToSession();
     Progression.resetAll();
     Progression.init();
@@ -32,10 +28,11 @@ export default function TitleScreen() {
   return (
     <div className={styles.screen}>
       <div className="title-bg"></div>
-      <div className={styles.content}>
-        <div className="title-rune">✦</div>
-        <h1 className={styles.gameTitle}>AETHERIAL<br />CLASH</h1>
+      <div className={styles.header}>
+        <h1 className={styles.gameTitle}>ECHOES OF SANGUO</h1>
         <p className={styles.subtitle}>{t('title.subtitle')}</p>
+      </div>
+      <div className={styles.content}>
         <div className={styles.menu}>
           <button className="btn-primary" onClick={handleNewGame}>{t('title.new_game')}</button>
           {hasSave && (
