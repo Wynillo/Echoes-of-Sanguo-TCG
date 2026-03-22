@@ -12,6 +12,12 @@ const RACE_INFO: Record<string, { icon: string; color: string }> = {
   krieger: { icon: '⚔️', color: '#c09030' },
 };
 
+const RACE_TO_NUM: Record<string, number> = {
+  drache:  1,  // Race.Dragon
+  magier:  2,  // Race.Spellcaster
+  krieger: 3,  // Race.Warrior
+};
+
 export default function StarterScreen() {
   const { navigateTo }             = useScreen();
   const { refresh, setCurrentDeck } = useProgression();
@@ -20,7 +26,7 @@ export default function StarterScreen() {
 
   function confirm() {
     if (!selected) return;
-    const deckIds = (STARTER_DECKS as any)[selected];
+    const deckIds = STARTER_DECKS[RACE_TO_NUM[selected]];
     if (!deckIds) return;
     Progression.markStarterChosen(selected);
     Progression.addCardsToCollection(deckIds);
