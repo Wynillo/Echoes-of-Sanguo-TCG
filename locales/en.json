@@ -6,7 +6,7 @@
     "close": "✕ Close",
     "back_main": "← Main Menu",
     "back": "← Back",
-    "coins": "Aether Coins",
+    "coins": "Jade Coins",
     "cards": "Cards"
   },
   "title": {
@@ -70,7 +70,7 @@
     "vol_sfx": "Sound Effects"
   },
   "shop": {
-    "title": "◈ AETHER SHOP",
+    "title": "◈ JADE SHOP",
     "back": "← Main Menu",
     "buy_btn": "Buy Pack"
   },
@@ -79,7 +79,7 @@
     "starter_desc": "9 Cards · One Race · C/U-heavy",
     "race_name": "Race Pack",
     "race_desc": "9 Cards · Chosen Race · Standard",
-    "aether_name": "Aether Pack",
+    "aether_name": "Jade Pack",
     "aether_desc": "9 Cards · All Races · Standard",
     "rarity_name": "Rarity Pack",
     "rarity_desc": "9 Cards · Min. Rare · Increased SR/UR Chance"
@@ -135,9 +135,9 @@
   "result": {
     "win_title": "Victory!",
     "lose_title": "Defeat",
-    "win_desc": "You defeated the opponent! The power of the Aetherial is in your hands.",
+    "win_desc": "You defeated the opponent! Your victory echoes through the Three Kingdoms.",
     "lose_desc": "You were defeated. But every warrior can learn from a defeat...",
-    "coins_earned": "+{{coins}} Aether Coins",
+    "coins_earned": "+{{coins}} Jade Coins",
     "play_again": "🔄 Play Again",
     "choose_opponent": "⚔ Choose Opponent",
     "home": "🏠 Main Menu"
@@ -185,7 +185,7 @@
     "atk_bonus": " (+Bonus)"
   },
   "card_list": {
-    "title": "All Cards — Aetherial Clash",
+    "title": "All Cards — Echoes of Sanguo",
     "group_normal": "Normal Monsters",
     "group_effect": "Effect Monsters",
     "group_fusion": "Fusion Monsters",

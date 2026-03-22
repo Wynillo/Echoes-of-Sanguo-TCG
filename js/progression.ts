@@ -13,7 +13,7 @@ export const Progression = (() => {
     starterRace:    'ac_starter_race',
     collection:     'ac_collection',
     deck:           'ac_deck',
-    coins:          'ac_aether_coins',
+    coins:          'eos_jade_coins',
     opponents:      'ac_opponents',
     version:        'ac_save_version',
     settings:       'ac_settings',
@@ -79,7 +79,11 @@ export const Progression = (() => {
       _save(KEYS.version, SAVE_VERSION);
     } else {
       // Fehlende Felder ergänzen (nach Updates)
-      if (!localStorage.getItem(KEYS.coins)) _save(KEYS.coins, 0);
+      // Legacy-Migration: alte Äther-Münzen auf neuen Jade-Key übertragen
+      if (!localStorage.getItem(KEYS.coins)) {
+        const legacyCoins = localStorage.getItem('ac_aether_coins');
+        _save(KEYS.coins, legacyCoins !== null ? JSON.parse(legacyCoins) : 0);
+      }
       if (!localStorage.getItem(KEYS.collection)) _save(KEYS.collection, []);
       if (!localStorage.getItem(KEYS.opponents)) _save(KEYS.opponents, _defaultOpponents());
       // Versionsstempel setzen falls fehlend (bestehende Saves von vor v1)

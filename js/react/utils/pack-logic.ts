@@ -6,7 +6,7 @@ import type { CardData } from '../../types.js';
 export const PACK_TYPES: Record<string, { id: string; name: string; desc: string; price: number; icon: string; color: string }> = {
   starter: { id: 'starter', name: 'Starterpack',      desc: '9 Karten · Eine Rasse · C/U-lastig',          price: 200, icon: '✦', color: '#4080a0' },
   race:    { id: 'race',    name: 'Rassen-Pack',       desc: '9 Karten · Gewählte Rasse · Standard',        price: 350, icon: '⚔', color: '#a06020' },
-  aether:  { id: 'aether',  name: 'Ätherpack',         desc: '9 Karten · Alle Rassen · Standard',           price: 500, icon: '◈', color: '#6040a0' },
+  aether:  { id: 'aether',  name: 'Jade-Pack',          desc: '9 Karten · Alle Rassen · Standard',           price: 500, icon: '◈', color: '#2a7848' },
   rarity:  { id: 'rarity',  name: 'Seltenheitspack',   desc: '9 Karten · Min. Rare · Erhöhte SR/UR-Chance', price: 600, icon: '★', color: '#c0a020' },
 };
 

@@ -6,7 +6,7 @@
     "close": "✕ Schließen",
     "back_main": "← Hauptmenü",
     "back": "← Zurück",
-    "coins": "Äther-Münzen",
+    "coins": "Jade-Münzen",
     "cards": "Karten"
   },
   "title": {
@@ -70,7 +70,7 @@
     "vol_sfx": "Soundeffekte"
   },
   "shop": {
-    "title": "◈ ÄTHER-SHOP",
+    "title": "◈ JADE-SHOP",
     "back": "← Hauptmenü",
     "buy_btn": "Pack kaufen"
   },
@@ -79,7 +79,7 @@
     "starter_desc": "9 Karten · Eine Rasse · C/U-lastig",
     "race_name": "Rassen-Pack",
     "race_desc": "9 Karten · Gewählte Rasse · Standard",
-    "aether_name": "Ätherpack",
+    "aether_name": "Jade-Pack",
     "aether_desc": "9 Karten · Alle Rassen · Standard",
     "rarity_name": "Seltenheitspack",
     "rarity_desc": "9 Karten · Min. Rare · Erhöhte SR/UR-Chance"
@@ -135,9 +135,9 @@
   "result": {
     "win_title": "Sieg!",
     "lose_title": "Niederlage",
-    "win_desc": "Du hast den Gegner besiegt! Die Macht der Aetherial liegt in deinen Händen.",
+    "win_desc": "Du hast den Gegner besiegt! Dein Sieg hallt durch die Drei Königreiche.",
     "lose_desc": "Du wurdest besiegt. Doch jeder Krieger kann aus einer Niederlage lernen...",
-    "coins_earned": "+{{coins}} Äther-Münzen",
+    "coins_earned": "+{{coins}} Jade-Münzen",
     "play_again": "🔄 Nochmal Spielen",
     "choose_opponent": "⚔ Gegner wählen",
     "home": "🏠 Hauptmenü"
@@ -185,7 +185,7 @@
     "atk_bonus": " (+Bonus)"
   },
   "card_list": {
-    "title": "Alle Karten — Aetherial Clash",
+    "title": "Alle Karten — Echoes of Sanguo",
     "group_normal": "Normale Monster",
     "group_effect": "Effekt-Monster",
     "group_fusion": "Fusion-Monster",

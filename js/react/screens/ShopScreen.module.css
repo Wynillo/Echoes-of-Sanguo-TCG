@@ -105,7 +105,7 @@
 .buyBtn {
   background: #0d1830;
   border: 2px solid;
-  border-color: #6080d0 #182860 #182860 #6080d0;
+  border-color: #30a060 #0a2c18 #0a2c18 #30a060;
   color: var(--pack-color, #90b0e0);
   padding: 7px 16px;
   border-radius: 0;
@@ -116,8 +116,8 @@
 }
 
 .buyBtn:hover:not(:disabled) {
-  background: #102040;
-  color: #d0e8ff;
+  background: #0e2e1c;
+  color: #d0e8d8;
 }
 
 .buyBtn:disabled { opacity: 0.4; cursor: not-allowed; }

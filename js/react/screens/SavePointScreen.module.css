@@ -20,8 +20,8 @@
 
 .coinsBar {
   display: inline-flex; align-items: center; gap: 8px;
-  background: #1a1830; border: 2px solid;
-  border-color: #6080d0 #182860 #182860 #6080d0;
+  background: #0e1c14; border: 2px solid;
+  border-color: #30a060 #0a2c18 #0a2c18 #30a060;
   border-radius: 0; padding: 6px 18px; margin-bottom: 14px;
   font-size: 0.875rem; color: var(--gold-light); letter-spacing: 1px;
 }
