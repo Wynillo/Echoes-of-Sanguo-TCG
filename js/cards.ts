@@ -8,6 +8,44 @@ import { CardType, Attribute, Race, Rarity } from './types.js';
 export const TYPE = CardType;
 export const RARITY = Rarity;
 
+// ── Display helpers (static, used by React screens) ──────────
+export const RARITY_COLOR: Record<number, string> = {
+  [Rarity.Common]:    '#aaa',
+  [Rarity.Uncommon]:  '#7ec8e3',
+  [Rarity.Rare]:      '#f5c518',
+  [Rarity.SuperRare]: '#c084fc',
+  [Rarity.UltraRare]: '#f97316',
+};
+
+export const RARITY_NAME: Record<number, string> = {
+  [Rarity.Common]:    'Common',
+  [Rarity.Uncommon]:  'Uncommon',
+  [Rarity.Rare]:      'Rare',
+  [Rarity.SuperRare]: 'Super Rare',
+  [Rarity.UltraRare]: 'Ultra Rare',
+};
+
+// Keys match i18n suffixes (cards.race_<key>) and old card string values
+export const RACE_ICON: Record<string, string> = {
+  feuer: '🔥', drache: '🐲', flug: '🦅', stein: '🪨',
+  pflanze: '🌿', krieger: '⚔️', magier: '🔮',
+  elfe: '✨', daemon: '💀', wasser: '🌊',
+};
+
+export const RACE_NAME: Record<string, string> = {
+  feuer: 'Feuer', drache: 'Drache', flug: 'Flug', stein: 'Stein',
+  pflanze: 'Pflanze', krieger: 'Krieger', magier: 'Magier',
+  elfe: 'Elfe', daemon: 'Dämon', wasser: 'Wasser',
+};
+
+export const ATTR_SYMBOL: Record<string, string> = {
+  fire: '♨', water: '◎', earth: '◆', wind: '∿', light: '☀', dark: '☽',
+};
+
+export const ATTR_NAME: Record<string, string> = {
+  fire: 'Feuer', water: 'Wasser', earth: 'Erde', wind: 'Wind', light: 'Licht', dark: 'Dunkel',
+};
+
 // ── Runtime data stores (populated by ac-loader from base.ac) ──
 export const CARD_DB: Record<string, CardData> = {};
 export const FUSION_RECIPES: FusionRecipe[] = [];
