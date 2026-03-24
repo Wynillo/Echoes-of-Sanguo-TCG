@@ -13,6 +13,7 @@ import { executeEffectBlock, extractPassiveFlags } from './effect-registry.js';
 import { CardType, Attribute, isMonsterType } from './types.js';
 import type { Owner, Phase, Position, CardData, CardEffectBlock, EffectContext, EffectSignal, GameState, PlayerState, UICallbacks, OpponentConfig, VsAttrBonus, AIBehavior } from './types.js';
 import { resolveAIBehavior, shouldActivateNormalSpell, pickSummonCandidate, decideSummonPosition } from './ai-behaviors.js';
+import { GAME_RULES } from './rules.js';
 
 const ownerLabel = (owner: Owner): string => owner === 'player' ? 'Spieler' : 'Gegner';
 
@@ -106,9 +107,7 @@ export const EchoesOfSanguo = {
   },
 };
 
-// ── Hand size constants ───────────────────────────────────
-const HAND_LIMIT_DRAW = 10; // max cards holdable mid-turn (draw cap)
-const HAND_LIMIT_END  = 8;  // must discard down to this at end of turn
+// ── Hand size constants (from GAME_RULES) ────────────────
 
 export class FieldCard {
   card: CardData;
@@ -206,18 +205,18 @@ export class GameEngine {
       turn: 1,
       activePlayer: 'player',
       player: {
-        lp: 8000,
+        lp: GAME_RULES.startingLP,
         deck: this._shuffle(makeDeck(playerDeckIds || PLAYER_DECK_IDS)),
         hand: [],
-        field: { monsters: Array(5).fill(null), spellTraps: Array(5).fill(null) },
+        field: { monsters: Array(GAME_RULES.fieldZones).fill(null), spellTraps: Array(GAME_RULES.fieldZones).fill(null) },
         graveyard: [],
         normalSummonUsed: false
       },
       opponent: {
-        lp: 8000,
+        lp: GAME_RULES.startingLP,
         deck: this._shuffle(makeDeck(oppDeckIds)),
         hand: [],
-        field: { monsters: Array(5).fill(null), spellTraps: Array(5).fill(null) },
+        field: { monsters: Array(GAME_RULES.fieldZones).fill(null), spellTraps: Array(GAME_RULES.fieldZones).fill(null) },
         graveyard: [],
         normalSummonUsed: false
       },
@@ -309,7 +308,7 @@ export class GameEngine {
       drawn++;
     }
     // hand limit (draw cap)
-    while(st.hand.length > HAND_LIMIT_DRAW) st.hand.shift();
+    while(st.hand.length > GAME_RULES.handLimitDraw) st.hand.shift();
     if(drawn > 0 && this.ui.onDraw) this.ui.onDraw(owner, drawn);
   }
 
@@ -631,8 +630,8 @@ export class GameEngine {
       fc.phoenixRevivalUsed = true;
       st.graveyard.push(fc.card);
       st.field.monsters[zone] = null;
-      // Special summon from grave with -500 ATK
-      const revCard = Object.assign({}, fc.card, { atk: fc.card.atk - 500 });
+      // Special summon from grave with ATK penalty
+      const revCard = Object.assign({}, fc.card, { atk: fc.card.atk + GAME_RULES.phoenixRevivePenalty });
       const newZone = st.field.monsters.findIndex(z => z === null);
       if(newZone !== -1){
         const newFC = new FieldCard(revCard, 'atk');
@@ -747,7 +746,7 @@ export class GameEngine {
 
     // discard to end-of-turn hand limit
     const hand = this.state.player.hand;
-    while(hand.length > HAND_LIMIT_END){ hand.shift(); }
+    while(hand.length > GAME_RULES.handLimitEnd){ hand.shift(); }
 
     // switch player
     this.state.activePlayer = 'opponent';
