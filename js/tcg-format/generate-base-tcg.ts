@@ -2,60 +2,78 @@
 // ECHOES OF SANGUO — TCG Archive Generator
 // Usage: npm run generate:tcg
 //
-// Patches the existing public/base.tcg:
-//   - Reads opponent deck files from base-ac-src/opponents/*.json
-//   - Adds them to the ZIP as opponents/*.json
-//   - Strips opponentConfigs from meta.json (now in individual files)
+// Validates and reports on the public/base.tcg-src/ folder structure,
+// then packs it into a distributable archive at public/base.tcg.
+// The folder is the source of truth; the archive is for distribution.
 // ============================================================
 
-import { readFile, writeFile, readdir } from 'node:fs/promises';
+import { readFile, writeFile, readdir, stat } from 'node:fs/promises';
 import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import JSZip from 'jszip';
-import type { TcgOpponentDeck } from './types.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = resolve(__dirname, '../../');
-const TCG_PATH  = join(REPO_ROOT, 'public/base.tcg');
-const SRC_DIR   = join(REPO_ROOT, 'base-ac-src/opponents');
+const REPO_ROOT  = resolve(__dirname, '../../');
+const TCG_FOLDER = join(REPO_ROOT, 'public/base.tcg-src');
+const OUT_ZIP    = join(REPO_ROOT, 'public/base.tcg');
+
+async function addDirToZip(zip: JSZip, dir: string, zipPrefix: string): Promise<number> {
+  let count = 0;
+  const entries = await readdir(dir, { withFileTypes: true });
+  for (const entry of entries) {
+    const fullPath = join(dir, entry.name);
+    const zipPath  = zipPrefix + entry.name;
+    if (entry.isDirectory()) {
+      count += await addDirToZip(zip, fullPath, zipPath + '/');
+    } else {
+      const data = await readFile(fullPath);
+      zip.file(zipPath, data);
+      count++;
+    }
+  }
+  return count;
+}
 
 async function main() {
-  console.log(`Reading ${TCG_PATH} ...`);
-  const zip = await JSZip.loadAsync(await readFile(TCG_PATH));
-
-  // Strip opponentConfigs from meta.json (moved to opponents/ folder)
-  const metaFile = zip.file('meta.json');
-  if (!metaFile) throw new Error('meta.json not found in base.tcg');
-  const meta = JSON.parse(await metaFile.async('string'));
-  const hadOpponents = 'opponentConfigs' in meta;
-  delete meta.opponentConfigs;
-  zip.file('meta.json', JSON.stringify(meta));
-  if (hadOpponents) {
-    console.log('Stripped opponentConfigs from meta.json');
+  // Validate folder exists
+  try {
+    await stat(TCG_FOLDER);
+  } catch {
+    throw new Error(`public/base.tcg-src/ folder not found at ${TCG_FOLDER}`);
   }
 
-  // Remove any existing opponents/ entries from the ZIP
-  Object.keys(zip.files)
-    .filter(f => f.startsWith('opponents/'))
-    .forEach(f => zip.remove(f));
-
-  // Add opponents/*.json from source folder
-  const srcFiles = (await readdir(SRC_DIR))
-    .filter(f => f.endsWith('.json'))
-    .sort();
-
-  console.log(`Adding ${srcFiles.length} opponent deck files...`);
-  for (const filename of srcFiles) {
-    const raw = await readFile(join(SRC_DIR, filename), 'utf-8');
-    const parsed: TcgOpponentDeck = JSON.parse(raw);
-    console.log(`  opponents/${filename} (id=${parsed.id}, name=${parsed.name})`);
-    zip.file(`opponents/${filename}`, JSON.stringify(parsed));
+  // Required files check
+  const REQUIRED = ['cards.json', 'manifest.json', 'meta.json', 'races.json', 'attributes.json', 'card_types.json', 'rarities.json'];
+  const missing: string[] = [];
+  for (const f of REQUIRED) {
+    try {
+      await stat(join(TCG_FOLDER, f));
+    } catch {
+      missing.push(f);
+    }
+  }
+  if (missing.length > 0) {
+    console.warn(`WARNING: Missing required files: ${missing.join(', ')}`);
   }
 
-  // Write back to public/base.tcg
+  // Validate cards.json is valid JSON
+  try {
+    const cardsRaw = await readFile(join(TCG_FOLDER, 'cards.json'), 'utf-8');
+    const cards = JSON.parse(cardsRaw);
+    console.log(`cards.json: ${cards.length} cards`);
+  } catch (e) {
+    console.error('cards.json: invalid JSON:', e);
+  }
+
+  // Pack folder into ZIP
+  console.log(`\nPacking ${TCG_FOLDER} → ${OUT_ZIP} ...`);
+  const zip = new JSZip();
+  const count = await addDirToZip(zip, TCG_FOLDER, '');
+  console.log(`  Added ${count} files`);
+
   const out = await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
-  await writeFile(TCG_PATH, out);
-  console.log(`Done. Written ${TCG_PATH} (${(out.length / 1024).toFixed(1)} KB)`);
+  await writeFile(OUT_ZIP, out);
+  console.log(`Done. Written ${OUT_ZIP} (${(out.length / 1024).toFixed(1)} KB)`);
 }
 
 main().catch(err => {

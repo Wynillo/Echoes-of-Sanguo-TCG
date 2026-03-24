@@ -1,0 +1,12 @@
+[
+  { "id": 1, "key": "Dragon",      "value": "Dragon",      "color": "#8040c0", "icon": "🐲" },
+  { "id": 2, "key": "Spellcaster", "value": "Spellcaster", "color": "#6060c0", "icon": "🔮" },
+  { "id": 3, "key": "Warrior",     "value": "Warrior",     "color": "#c09030", "icon": "⚔️" },
+  { "id": 4, "key": "Fire",        "value": "Fire",        "color": "#e05030", "icon": "🔥" },
+  { "id": 5, "key": "Plant",       "value": "Plant",       "color": "#40a050", "icon": "🌿" },
+  { "id": 6, "key": "Stone",       "value": "Stone",       "color": "#808060", "icon": "🪨" },
+  { "id": 7, "key": "Flyer",       "value": "Flyer",       "color": "#4090c0", "icon": "🦅" },
+  { "id": 8, "key": "Elf",         "value": "Elf",         "color": "#90c060", "icon": "✨" },
+  { "id": 9, "key": "Demon",       "value": "Demon",       "color": "#804090", "icon": "💀" },
+  { "id": 10, "key": "Water",      "value": "Water",       "color": "#3080b0", "icon": "🌊" }
+]

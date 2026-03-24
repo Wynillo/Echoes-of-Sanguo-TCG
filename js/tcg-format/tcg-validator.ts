@@ -4,18 +4,24 @@
 // ============================================================
 
 import type JSZip from 'jszip';
-import type { TcgCard, TcgCardDefinition, ValidationResult } from './types.js';
+import type { TcgCard, TcgCardDefinition, TcgOpponentDescription, TcgManifest, TcgCampaignJson, ValidationResult } from './types.js';
 import { validateTcgCards } from './card-validator.js';
 import { validateTcgDefinitions } from './def-validator.js';
+import { validateTcgOpponentDescriptions } from './opp-desc-validator.js';
 
 /** Regex matching valid description file names: cards_description.json or xx_cards_description.json */
 const DESC_FILE_REGEX = /^([a-z]{2}_)?cards_description\.json$/;
 
+/** Regex matching opponent description files: opponents_description.json or xx_opponents_description.json */
+const OPP_DESC_FILE_REGEX = /^([a-z]{2}_)?opponents_description\.json$/;
+
 export interface TcgArchiveContents {
   cards: TcgCard[];
   definitions: Map<string, TcgCardDefinition[]>;   // lang (or '') -> definitions
+  opponentDescriptions: Map<string, TcgOpponentDescription[]>;  // lang (or '') -> opponent descriptions
   imageIds: Set<number>;                            // card ids that have images
   missingImageIds: number[];                        // card ids without images
+  manifest?: TcgManifest;                           // parsed manifest.json if present
 }
 
 /**
@@ -76,13 +82,61 @@ export async function validateTcgArchive(zip: JSZip): Promise<ValidationResult &
     }
   }
 
-  // 3. Check img/ folder exists
+  // 3. Parse opponent description files (optional)
+  const oppDescFiles = allFiles.filter(f => OPP_DESC_FILE_REGEX.test(f));
+  const opponentDescriptions = new Map<string, TcgOpponentDescription[]>();
+  for (const oppDescFile of oppDescFiles) {
+    const match = oppDescFile.match(OPP_DESC_FILE_REGEX);
+    const lang = match?.[1]?.replace('_', '') ?? '';
+
+    try {
+      const descJson = await zip.file(oppDescFile)!.async('string');
+      const descData = JSON.parse(descJson);
+      const descResult = validateTcgOpponentDescriptions(descData);
+      if (!descResult.valid) {
+        errors.push(...descResult.errors.map(e => `${oppDescFile}: ${e}`));
+      }
+      warnings.push(...descResult.warnings);
+      if (descResult.valid) opponentDescriptions.set(lang, descData as TcgOpponentDescription[]);
+    } catch (e) {
+      errors.push(`${oppDescFile}: failed to parse JSON: ${e instanceof Error ? e.message : e}`);
+    }
+  }
+
+  // 3b. Validate split metadata files if present (optional files)
+  for (const metaFile of ['races.json', 'attributes.json', 'card_types.json', 'rarities.json']) {
+    const f = zip.file(metaFile);
+    if (f) {
+      try {
+        const data = JSON.parse(await f.async('string'));
+        if (!Array.isArray(data)) {
+          warnings.push(`${metaFile}: must be an array`);
+        } else {
+          for (let i = 0; i < data.length; i++) {
+            const item = data[i];
+            if (typeof item !== 'object' || item === null) {
+              warnings.push(`${metaFile}[${i}] must be an object`);
+              continue;
+            }
+            for (const field of ['id', 'key', 'value', 'color']) {
+              if (!(field in item)) warnings.push(`${metaFile}[${i}] missing required field '${field}'`);
+            }
+            if (typeof item.id !== 'number') warnings.push(`${metaFile}[${i}].id must be a number`);
+          }
+        }
+      } catch (e) {
+        warnings.push(`${metaFile}: failed to parse JSON: ${e instanceof Error ? e.message : e}`);
+      }
+    }
+  }
+
+  // 4. Check img/ folder exists
   const hasImgFolder = allFiles.some(f => f.startsWith('img/'));
   if (!hasImgFolder) {
     errors.push('Missing required folder: img/');
   }
 
-  // 4. Cross-validate: every card id must have a definition in at least one description file
+  // 5. Cross-validate: every card id must have a definition in at least one description file
   if (cards.length > 0 && definitions.size > 0) {
     const allDefinedIds = new Set<number>();
     for (const defs of definitions.values()) {
@@ -107,7 +161,7 @@ export async function validateTcgArchive(zip: JSZip): Promise<ValidationResult &
     }
   }
 
-  // 5. Check images: img/{id}.png for each card
+  // 6. Check images: img/{id}.png for each card
   const imageIds = new Set<number>();
   const missingImageIds: number[] = [];
 
@@ -123,10 +177,131 @@ export async function validateTcgArchive(zip: JSZip): Promise<ValidationResult &
     }
   }
 
+  // 6. Validate manifest.json (optional)
+  let manifest: TcgManifest | undefined;
+  const manifestFile = zip.file('manifest.json');
+  if (manifestFile) {
+    try {
+      const manifestJson = await manifestFile.async('string');
+      const parsed = JSON.parse(manifestJson);
+      if (typeof parsed.formatVersion !== 'number' || parsed.formatVersion <= 0) {
+        errors.push('manifest.json: formatVersion must be a positive number');
+      } else {
+        manifest = parsed as TcgManifest;
+      }
+    } catch (e) {
+      errors.push(`manifest.json: failed to parse JSON: ${e instanceof Error ? e.message : e}`);
+    }
+  } else {
+    warnings.push('manifest.json not found — consider adding one for format versioning');
+  }
+
   const valid = errors.length === 0;
   const contents: TcgArchiveContents | undefined = valid
-    ? { cards, definitions, imageIds, missingImageIds }
+    ? { cards, definitions, opponentDescriptions, imageIds, missingImageIds, manifest }
     : undefined;
 
   return { valid, errors, warnings, contents };
+}
+
+/**
+ * Validate a campaign.json object. Returns an array of warning strings
+ * (campaign.json is optional, so issues are warnings not errors).
+ */
+export function validateCampaignJson(data: unknown): string[] {
+  const warnings: string[] = [];
+  if (typeof data !== 'object' || data === null || Array.isArray(data)) {
+    warnings.push('campaign.json: must be a JSON object');
+    return warnings;
+  }
+
+  const obj = data as Record<string, unknown>;
+  if (!Array.isArray(obj.chapters)) {
+    warnings.push('campaign.json: chapters must be an array');
+    return warnings;
+  }
+
+  const VALID_NODE_TYPES = ['duel', 'story', 'reward', 'shop', 'branch'];
+  const VALID_CONDITION_TYPES = ['nodeComplete', 'allComplete', 'anyComplete', 'cardOwned', 'winsCount'];
+  const allNodeIds = new Set<string>();
+  const referencedNodeIds = new Set<string>();
+
+  // First pass: collect all node IDs and check for duplicates
+  for (const chapter of obj.chapters as unknown[]) {
+    if (typeof chapter !== 'object' || chapter === null) {
+      warnings.push('campaign.json: each chapter must be an object');
+      continue;
+    }
+    const ch = chapter as Record<string, unknown>;
+    if (!Array.isArray(ch.nodes)) {
+      warnings.push(`campaign.json: chapter "${ch.id ?? '?'}": nodes must be an array`);
+      continue;
+    }
+    for (const node of ch.nodes as unknown[]) {
+      if (typeof node !== 'object' || node === null) {
+        warnings.push('campaign.json: each node must be an object');
+        continue;
+      }
+      const n = node as Record<string, unknown>;
+
+      // Required fields
+      if (typeof n.id !== 'string') {
+        warnings.push('campaign.json: node missing required field "id"');
+        continue;
+      }
+      if (allNodeIds.has(n.id)) {
+        warnings.push(`campaign.json: duplicate node ID "${n.id}"`);
+      }
+      allNodeIds.add(n.id);
+
+      if (typeof n.type !== 'string' || !VALID_NODE_TYPES.includes(n.type)) {
+        warnings.push(`campaign.json: node "${n.id}": invalid type "${n.type}" (expected: ${VALID_NODE_TYPES.join(', ')})`);
+      }
+
+      if (typeof n.position !== 'object' || n.position === null) {
+        warnings.push(`campaign.json: node "${n.id}": missing required field "position"`);
+      } else {
+        const pos = n.position as Record<string, unknown>;
+        if (typeof pos.x !== 'number' || typeof pos.y !== 'number') {
+          warnings.push(`campaign.json: node "${n.id}": position must have numeric x and y`);
+        }
+      }
+
+      // Validate unlock conditions and collect referenced node IDs
+      if (n.unlockCondition !== null && n.unlockCondition !== undefined) {
+        const cond = n.unlockCondition as Record<string, unknown>;
+        if (typeof cond.type !== 'string' || !VALID_CONDITION_TYPES.includes(cond.type)) {
+          warnings.push(`campaign.json: node "${n.id}": invalid unlock condition type "${cond.type}"`);
+        } else {
+          switch (cond.type) {
+            case 'nodeComplete':
+              if (typeof cond.nodeId === 'string') referencedNodeIds.add(cond.nodeId);
+              break;
+            case 'allComplete':
+            case 'anyComplete':
+              if (Array.isArray(cond.nodeIds)) {
+                for (const id of cond.nodeIds) {
+                  if (typeof id === 'string') referencedNodeIds.add(id);
+                }
+              }
+              break;
+          }
+        }
+      }
+
+      // Validate opponentId for duel nodes (warning only)
+      if (n.type === 'duel' && n.opponentId !== undefined && typeof n.opponentId !== 'number') {
+        warnings.push(`campaign.json: node "${n.id}": opponentId must be a number`);
+      }
+    }
+  }
+
+  // Second pass: check that referenced node IDs exist
+  for (const refId of referencedNodeIds) {
+    if (!allNodeIds.has(refId)) {
+      warnings.push(`campaign.json: unlock condition references unknown node ID "${refId}"`);
+    }
+  }
+
+  return warnings;
 }

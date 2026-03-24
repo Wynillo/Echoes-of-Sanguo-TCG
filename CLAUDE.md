@@ -11,7 +11,7 @@ npm test               # Run Vitest tests once
 npm run test:watch     # Vitest in watch mode
 npm run test:coverage  # Coverage report (v8)
 npm run test:e2e       # Playwright E2E tests (launches dev server)
-npm run generate:tcg   # Regenerate public/base.tcg from card data
+npm run generate:tcg   # Validate public/base.tcg-src/ folder and pack into public/base.tcg
 npm run build:android  # Build + Capacitor sync for Android
 npm run cap:sync       # Sync Capacitor changes
 npm run cap:open       # Open Android Studio
@@ -41,9 +41,9 @@ js/
 ├── audio.ts               # Web Audio API singleton
 ├── mod-api.ts             # window.EchoesOfSanguoMod API for community mods
 ├── i18n.ts                # i18next setup (de + en)
-├── main.js                # Entry point (loads base.tcg, mounts React)
+├── main.js                # Entry point (loads base.tcg-src, mounts React)
 ├── tcg-format/            # Binary card format serialization/deserialization
-│   ├── tcg-loader.ts      # Load .tcg ZIP → CARD_DB
+│   ├── tcg-loader.ts      # Load .tcg folder (trailing /) or ZIP → CARD_DB
 │   ├── tcg-builder.ts     # Build .tcg from card data
 │   ├── tcg-validator.ts   # Format validation
 │   ├── effect-serializer.ts
@@ -61,7 +61,24 @@ tests/                     # Vitest unit/integration tests
 tests-e2e/                 # Playwright E2E tests
 css/                       # style.css, animations.css, progression.css
 locales/                   # de.json, en.json
-public/                    # base.tcg, audio/, title-bg.png
+public/
+├── base.tcg-src/          # TCG source folder (served directly by Vite)
+│   ├── cards.json         # Card data (numeric IDs)
+│   ├── races.json         # Race metadata { id, key, value, color, icon }
+│   ├── attributes.json    # Attribute metadata { id, key, value, color, symbol }
+│   ├── card_types.json    # Card type metadata { id, key, value, color }
+│   ├── rarities.json      # Rarity metadata { id, key, value, color }
+│   ├── meta.json          # Fusion recipes, starter decks
+│   ├── manifest.json      # Format version
+│   ├── shop.json          # Shop/booster pack definitions
+│   ├── campaign.json      # Campaign map data
+│   ├── locales/           # Key-based translation overrides (de_races.json, etc.)
+│   ├── opponents/         # Per-opponent deck JSON files
+│   ├── img/               # Card artwork PNGs
+│   ├── en_cards_description.json
+│   └── de_cards_description.json
+├── audio/                 # Sound effects
+└── title-bg.png
 android/                   # Capacitor Android project
 ```
 
@@ -100,6 +117,20 @@ New effects are added to `EFFECT_REGISTRY` in `effect-registry.ts`. Never hardco
 
 ### Internationalization
 All user-facing strings go through i18next. Translation files: `locales/de.json`, `locales/en.json`. Use `t('key')` via `useTranslation()` hook.
+
+## TCG Source Files
+
+`public/base.tcg-src/` is the **source folder** for the base card set. All JSON files
+and assets live here and are served directly by Vite during development.
+
+Metadata files use a uniform `{ id, key, value, color }` schema where:
+- `key` is the stable PascalCase identifier (e.g. `'Dragon'`) used for i18n lookups
+- `value` is the display label (localized at runtime via `locales/{lang}_*.json` overrides)
+- `icon` (races) and `symbol` (attributes) are optional extra fields
+
+For distribution as a standalone `.tcg` archive, run `npm run generate:tcg` to pack
+the folder contents into `public/base.tcg`. Keep both the source folder and
+the distributed archive in sync — changes to one must be reflected in the other.
 
 ## Key Types (js/types.ts)
 

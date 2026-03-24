@@ -80,6 +80,71 @@ export interface TcgOpponentDeck {
   behavior?: string;    // AI behavior profile name (e.g. 'aggressive', 'defensive')
 }
 
+// ── Opponent Description (localized) ────────────────────────────
+
+export interface TcgOpponentDescription {
+  id:     number;
+  name:   string;
+  title:  string;
+  flavor: string;
+}
+
+// ── Manifest (format versioning & feature flags) ────────────────
+
+export interface TcgManifest {
+  formatVersion: number;
+  name?: string;
+  author?: string;
+  features?: string[];
+  minEngineVersion?: string;
+}
+
+// ── Races JSON ───────────────────────────────────────────────
+
+export interface TcgRaceEntry {
+  id:     number;
+  key:    string;
+  value:  string;
+  color:  string;
+  icon?:  string;
+}
+export type TcgRacesJson = TcgRaceEntry[];
+
+// ── Attributes JSON ──────────────────────────────────────────
+
+export interface TcgAttributeEntry {
+  id:      number;
+  key:     string;
+  value:   string;
+  color:   string;
+  symbol?: string;
+}
+export type TcgAttributesJson = TcgAttributeEntry[];
+
+// ── Card Types JSON ──────────────────────────────────────────
+
+export interface TcgCardTypeEntry {
+  id:    number;
+  key:   string;
+  value: string;
+  color: string;
+}
+export type TcgCardTypesJson = TcgCardTypeEntry[];
+
+// ── Rarities JSON ────────────────────────────────────────────
+
+export interface TcgRarityEntry {
+  id:    number;
+  key:   string;
+  value: string;
+  color: string;
+}
+export type TcgRaritiesJson = TcgRarityEntry[];
+
+// ── Locale overrides ─────────────────────────────────────────
+// key → translated value
+export type TcgLocaleOverrides = Record<string, string>;
+
 // ── TCG Archive metadata ──────────────────────────────────────
 
 
@@ -97,6 +162,35 @@ export interface ValidationResult {
   warnings: string[];
 }
 
+// ── Shop JSON schema ─────────────────────────────────────────
+
+export interface TcgPackSlot {
+  count: number;
+  rarity?: number;
+  pool?: string;
+  distribution?: Record<string, number>;
+}
+
+export interface TcgPackDef {
+  id: string;
+  name: string;
+  desc: string;
+  price: number;
+  icon: string;
+  color: string;
+  slots: TcgPackSlot[];
+  filter?: string;
+}
+
+export interface TcgShopJson {
+  packs: TcgPackDef[];
+  currency?: { nameKey: string; icon: string };
+}
+
+// ── Campaign JSON (alias) ────────────────────────────────
+
+export type { CampaignData as TcgCampaignJson } from '../campaign-types.js';
+
 // ── Load result ──────────────────────────────────────────────
 
 export interface TcgLoadResult {
@@ -104,5 +198,6 @@ export interface TcgLoadResult {
   definitions: Map<string, TcgCardDefinition[]>;  // lang -> definitions
   images:      Map<number, string>;               // card id -> blob URL
   meta?:       TcgMeta;
+  manifest?:   TcgManifest;
   warnings:    string[];
 }
