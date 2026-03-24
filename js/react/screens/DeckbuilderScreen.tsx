@@ -213,7 +213,7 @@ export default function DeckbuilderScreen() {
               >
                 <option value="all">{t('deckbuilder.rarity_all')}</option>
                 {getAllRarities().map(rm => (
-                  <option key={rm.id} value={rm.id}>{rm.name}</option>
+                  <option key={rm.id} value={rm.id}>{rm.value}</option>
                 ))}
               </select>
               <input
@@ -310,7 +310,7 @@ export default function DeckbuilderScreen() {
                         </td>
                         <td>
                           <span style={{ color: rarColor }}>
-                            {rarMeta?.name ?? '—'}
+                            {rarMeta?.value ?? '—'}
                           </span>
                         </td>
                         <td>{card.name}</td>

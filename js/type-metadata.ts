@@ -14,7 +14,7 @@ export interface RaceMeta {
   key:    string;   // stable PascalCase identifier (e.g. 'Dragon')
   value:  string;   // display label (localized)
   color:  string;   // primary display color (hex)
-  icon:   string;   // emoji icon for filter buttons
+  icon?:  string;   // emoji icon for filter buttons (optional)
 }
 
 export interface AttributeMeta {
@@ -22,7 +22,7 @@ export interface AttributeMeta {
   key:    string;   // stable PascalCase identifier (e.g. 'Light')
   value:  string;   // display label (localized)
   color:  string;   // attribute orb color
-  symbol: string;   // attribute symbol character
+  symbol?: string;  // attribute symbol character (optional)
 }
 
 export interface RarityMeta {

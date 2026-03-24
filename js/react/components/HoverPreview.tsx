@@ -49,7 +49,7 @@ export function HoverPreview() {
 
   const { card, fc } = hover ?? {};
   const attrMeta = card?.attribute ? getAttrById(card.attribute) : undefined;
-  const attrNameStr = attrMeta?.name ?? '';
+  const attrNameStr = attrMeta?.value ?? '';
   const typeNameMap: Record<number, string> = { [CardType.Monster]:'Normal', [CardType.Fusion]:'Fusion', [CardType.Spell]:'Zauberkarte', [CardType.Trap]:'Fallenkarte' };
   const typeName = card ? (card.type === CardType.Monster && card.effect ? 'Effekt' : typeNameMap[card.type] || '') : '';
   const levelStr = card?.level ? ` · Lv ${card.level}` : '';

@@ -103,18 +103,30 @@ export async function validateTcgArchive(zip: JSZip): Promise<ValidationResult &
     }
   }
 
-  // 3b. Validate types.json if present (optional file)
-  const typesFile = zip.file('types.json');
-  if (typesFile) {
-    try {
-      const typesJson = await typesFile.async('string');
-      const typesData = JSON.parse(typesJson);
-      const typesErrors = validateTypesJson(typesData);
-      if (typesErrors.length > 0) {
-        warnings.push(...typesErrors.map(e => `types.json: ${e}`));
+  // 3b. Validate split metadata files if present (optional files)
+  for (const metaFile of ['races.json', 'attributes.json', 'card_types.json', 'rarities.json']) {
+    const f = zip.file(metaFile);
+    if (f) {
+      try {
+        const data = JSON.parse(await f.async('string'));
+        if (!Array.isArray(data)) {
+          warnings.push(`${metaFile}: must be an array`);
+        } else {
+          for (let i = 0; i < data.length; i++) {
+            const item = data[i];
+            if (typeof item !== 'object' || item === null) {
+              warnings.push(`${metaFile}[${i}] must be an object`);
+              continue;
+            }
+            for (const field of ['id', 'key', 'value', 'color']) {
+              if (!(field in item)) warnings.push(`${metaFile}[${i}] missing required field '${field}'`);
+            }
+            if (typeof item.id !== 'number') warnings.push(`${metaFile}[${i}].id must be a number`);
+          }
+        }
+      } catch (e) {
+        warnings.push(`${metaFile}: failed to parse JSON: ${e instanceof Error ? e.message : e}`);
       }
-    } catch (e) {
-      warnings.push(`types.json: failed to parse JSON: ${e instanceof Error ? e.message : e}`);
     }
   }
 
@@ -190,52 +202,6 @@ export async function validateTcgArchive(zip: JSZip): Promise<ValidationResult &
     : undefined;
 
   return { valid, errors, warnings, contents };
-}
-
-/**
- * Validate a types.json object. Returns an array of warning strings
- * (types.json is optional, so issues are warnings not errors).
- */
-function validateTypesJson(data: unknown): string[] {
-  const warnings: string[] = [];
-  if (typeof data !== 'object' || data === null || Array.isArray(data)) {
-    warnings.push('must be a JSON object');
-    return warnings;
-  }
-
-  const obj = data as Record<string, unknown>;
-  const REQUIRED_KEYS: Record<string, string[]> = {
-    races:      ['id', 'key', 'color', 'icon', 'symbol', 'abbr'],
-    attributes: ['id', 'key', 'color', 'symbol', 'name'],
-    rarities:   ['id', 'key', 'color', 'name'],
-    cardTypes:  ['id', 'key', 'label', 'css'],
-  };
-
-  for (const [section, requiredFields] of Object.entries(REQUIRED_KEYS)) {
-    if (!(section in obj)) continue;
-    const arr = obj[section];
-    if (!Array.isArray(arr)) {
-      warnings.push(`${section} must be an array`);
-      continue;
-    }
-    for (let i = 0; i < arr.length; i++) {
-      const item = arr[i];
-      if (typeof item !== 'object' || item === null) {
-        warnings.push(`${section}[${i}] must be an object`);
-        continue;
-      }
-      for (const field of requiredFields) {
-        if (!(field in item)) {
-          warnings.push(`${section}[${i}] missing required field '${field}'`);
-        }
-      }
-      if (typeof item.id !== 'number') {
-        warnings.push(`${section}[${i}].id must be a number`);
-      }
-    }
-  }
-
-  return warnings;
 }
 
 /**

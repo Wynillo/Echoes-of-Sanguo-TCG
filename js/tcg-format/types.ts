@@ -99,14 +99,51 @@ export interface TcgManifest {
   minEngineVersion?: string;
 }
 
-// ── types.json schema (enum visual metadata) ─────────────────
+// ── Races JSON ───────────────────────────────────────────────
 
-export interface TcgTypesJson {
-  races?:      Array<{ id: number; key: string; color: string; icon: string; symbol: string; abbr: string }>;
-  attributes?: Array<{ id: number; key: string; color: string; symbol: string; name: string }>;
-  rarities?:   Array<{ id: number; key: string; color: string; name: string }>;
-  cardTypes?:  Array<{ id: number; key: string; label: string; css: string }>;
+export interface TcgRaceEntry {
+  id:     number;
+  key:    string;
+  value:  string;
+  color:  string;
+  icon?:  string;
 }
+export type TcgRacesJson = TcgRaceEntry[];
+
+// ── Attributes JSON ──────────────────────────────────────────
+
+export interface TcgAttributeEntry {
+  id:      number;
+  key:     string;
+  value:   string;
+  color:   string;
+  symbol?: string;
+}
+export type TcgAttributesJson = TcgAttributeEntry[];
+
+// ── Card Types JSON ──────────────────────────────────────────
+
+export interface TcgCardTypeEntry {
+  id:    number;
+  key:   string;
+  value: string;
+  color: string;
+}
+export type TcgCardTypesJson = TcgCardTypeEntry[];
+
+// ── Rarities JSON ────────────────────────────────────────────
+
+export interface TcgRarityEntry {
+  id:    number;
+  key:   string;
+  value: string;
+  color: string;
+}
+export type TcgRaritiesJson = TcgRarityEntry[];
+
+// ── Locale overrides ─────────────────────────────────────────
+// key → translated value
+export type TcgLocaleOverrides = Record<string, string>;
 
 // ── TCG Archive metadata ──────────────────────────────────────
 

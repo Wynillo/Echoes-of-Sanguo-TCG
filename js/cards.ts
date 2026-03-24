@@ -23,7 +23,7 @@ export const RARITY_COLOR: Record<number, string> = new Proxy({} as Record<numbe
 
 /** @deprecated Use getRarityById() from type-metadata.ts instead */
 export const RARITY_NAME: Record<number, string> = new Proxy({} as Record<number, string>, {
-  get(_t, prop) { const id = Number(prop); return getRarityById(id)?.name ?? ''; },
+  get(_t, prop) { const id = Number(prop); return getRarityById(id)?.value ?? ''; },
   ownKeys() { return TYPE_META.rarities.map(r => String(r.id)); },
   getOwnPropertyDescriptor() { return { configurable: true, enumerable: true }; },
 });
@@ -37,7 +37,7 @@ export const RACE_ICON: Record<string, string> = new Proxy({} as Record<string, 
 
 /** @deprecated Use getRaceByKey() from type-metadata.ts instead */
 export const RACE_NAME: Record<string, string> = new Proxy({} as Record<string, string>, {
-  get(_t, prop) { return getRaceByKey(String(prop))?.abbr ?? ''; },
+  get(_t, prop) { return getRaceByKey(String(prop))?.value ?? ''; },
   ownKeys() { return TYPE_META.races.map(r => r.key); },
   getOwnPropertyDescriptor() { return { configurable: true, enumerable: true }; },
 });
@@ -51,7 +51,7 @@ export const ATTR_SYMBOL: Record<string, string> = new Proxy({} as Record<string
 
 /** @deprecated Use getAttrByKey() from type-metadata.ts instead */
 export const ATTR_NAME: Record<string, string> = new Proxy({} as Record<string, string>, {
-  get(_t, prop) { return getAttrByKey(String(prop))?.name ?? ''; },
+  get(_t, prop) { return getAttrByKey(String(prop))?.value ?? ''; },
   ownKeys() { return TYPE_META.attributes.map(a => a.key); },
   getOwnPropertyDescriptor() { return { configurable: true, enumerable: true }; },
 });

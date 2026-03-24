@@ -45,7 +45,7 @@ export default function OpponentScreen() {
             >
               <div className={styles.frame} style={{ borderColor: accent }}>
                 <div className={styles.art} style={{ background: `linear-gradient(135deg,${accent}44,#111830)` }}>
-                  <div className={styles.symbol}>{raceMeta?.symbol ?? '?'}</div>
+                  <div className={styles.symbol}>{raceMeta?.icon ?? '?'}</div>
                 </div>
                 {!isUnlocked && <div className={styles.lockedOverlay}>🔒</div>}
               </div>

@@ -3,7 +3,9 @@
 // ============================================================
 
 // Types
-export type { TcgCard, TcgCardDefinition, TcgManifest, TcgMeta, TcgOpponentDeck, TcgLoadResult, ValidationResult } from './types.js';
+export type { TcgCard, TcgCardDefinition, TcgManifest, TcgMeta, TcgOpponentDeck, TcgLoadResult, ValidationResult,
+  TcgRaceEntry, TcgRacesJson, TcgAttributeEntry, TcgAttributesJson,
+  TcgCardTypeEntry, TcgCardTypesJson, TcgRarityEntry, TcgRaritiesJson, TcgLocaleOverrides } from './types.js';
 export {
   TCG_TYPE_MONSTER, TCG_TYPE_FUSION, TCG_TYPE_SPELL, TCG_TYPE_TRAP, TCG_TYPES,
   TCG_ATTR_LIGHT, TCG_ATTR_DARK, TCG_ATTR_FIRE, TCG_ATTR_WATER, TCG_ATTR_EARTH, TCG_ATTR_WIND, TCG_ATTRIBUTES,
@@ -33,7 +35,7 @@ export { validateTcgArchive } from './tcg-validator.js';
 export type { TcgArchiveContents } from './tcg-validator.js';
 
 // Builder
-export { cardDataToTcgCard, cardDataToTcgDef, buildManifest } from './tcg-builder.js';
+export { cardDataToTcgCard, cardDataToTcgDef, buildManifest, buildRacesJson, buildAttributesJson, buildCardTypesJson, buildRaritiesJson } from './tcg-builder.js';
 
 // Loader
-export { loadTcgFile, revokeTcgImages } from './tcg-loader.js';
+export { loadTcgFile, loadTcgFolder, revokeTcgImages } from './tcg-loader.js';

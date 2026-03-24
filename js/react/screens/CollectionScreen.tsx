@@ -63,7 +63,7 @@ export default function CollectionScreen() {
         >
           <option value="all">{t('collection.rarity_all')}</option>
           {getAllRarities().map(rm => (
-            <option key={rm.id} value={rm.id}>{rm.name}</option>
+            <option key={rm.id} value={rm.id}>{rm.value}</option>
           ))}
         </select>
       </div>

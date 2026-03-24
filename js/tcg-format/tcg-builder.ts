@@ -4,7 +4,7 @@
 // ============================================================
 import type { CardData } from '../types.js';
 import { CardType } from '../types.js';
-import type { TcgCard, TcgCardDefinition, TcgManifest, TcgTypesJson } from './types.js';
+import type { TcgCard, TcgCardDefinition, TcgManifest, TcgRacesJson, TcgAttributesJson, TcgCardTypesJson, TcgRaritiesJson } from './types.js';
 import { cardTypeToInt, attributeToInt, raceToInt, rarityToInt, spellTypeToInt, trapTriggerToInt } from './enums.js';
 import { serializeEffect } from './effect-serializer.js';
 import { TYPE_META } from '../type-metadata.js';
@@ -48,12 +48,22 @@ export function buildManifest(overrides?: Partial<TcgManifest>): TcgManifest {
   };
 }
 
-/** Build a types.json object from the current TYPE_META store. */
-export function buildTypesJson(): TcgTypesJson {
-  return {
-    races:      TYPE_META.races.map(r => ({ id: r.id, key: r.key, color: r.color, icon: r.icon, symbol: r.symbol, abbr: r.abbr })),
-    attributes: TYPE_META.attributes.map(a => ({ id: a.id, key: a.key, color: a.color, symbol: a.symbol, name: a.name })),
-    rarities:   TYPE_META.rarities.map(r => ({ id: r.id, key: r.key, color: r.color, name: r.name })),
-    cardTypes:  TYPE_META.cardTypes.map(c => ({ id: c.id, key: c.key, label: c.label, css: c.css })),
-  };
+/** Build races.json from the current TYPE_META store. */
+export function buildRacesJson(): TcgRacesJson {
+  return TYPE_META.races.map(r => ({ id: r.id, key: r.key, value: r.value, color: r.color, ...(r.icon ? { icon: r.icon } : {}) }));
+}
+
+/** Build attributes.json from the current TYPE_META store. */
+export function buildAttributesJson(): TcgAttributesJson {
+  return TYPE_META.attributes.map(a => ({ id: a.id, key: a.key, value: a.value, color: a.color, ...(a.symbol ? { symbol: a.symbol } : {}) }));
+}
+
+/** Build card_types.json from the current TYPE_META store. */
+export function buildCardTypesJson(): TcgCardTypesJson {
+  return TYPE_META.cardTypes.map(c => ({ id: c.id, key: c.key, value: c.value, color: c.color }));
+}
+
+/** Build rarities.json from the current TYPE_META store. */
+export function buildRaritiesJson(): TcgRaritiesJson {
+  return TYPE_META.rarities.map(r => ({ id: r.id, key: r.key, value: r.value, color: r.color }));
 }

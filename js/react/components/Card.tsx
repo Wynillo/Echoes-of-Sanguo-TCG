@@ -9,12 +9,12 @@ import styles from './Card.module.css';
 
 function getTypeLabel(card: any): string {
   if (card.type === CardType.Monster && card.effect) return 'Effekt';
-  return getCardTypeById(card.type)?.label ?? '';
+  return getCardTypeById(card.type)?.value ?? '';
 }
 
 /** Map CardType enum to CSS class prefix */
 function typeCss(type: number): string {
-  return getCardTypeById(type)?.css ?? 'monster';
+  return getCardTypeById(type)?.key.toLowerCase() ?? 'monster';
 }
 
 /** Map Attribute enum to CSS class suffix */
@@ -52,7 +52,7 @@ export function Card({ card, fc = null, dimmed = false, rotated = false, big = f
 
   // Race badge (inside art area, top-left)
   const raceMeta = card.race ? getRaceById(card.race) : undefined;
-  const raceLabel = raceMeta?.abbr ?? '';
+  const raceLabel = raceMeta?.value ?? '';
   const raceBadge = card.race
     ? <span className={styles.raceBadge} style={{ background: raceMeta?.color ?? '#444' }}>
         {raceLabel || card.race}
@@ -64,7 +64,7 @@ export function Card({ card, fc = null, dimmed = false, rotated = false, big = f
   const rarityText = card.rarity
     ? <span className={styles.rarityText}
             style={{ color: rarMeta?.color ?? '#aaa' }}>
-        {rarMeta?.name ?? ''}
+        {rarMeta?.value ?? ''}
       </span>
     : null;
 
@@ -134,7 +134,7 @@ export function ATTR_CSS_FN(attr: number | undefined): string { return attrCssKe
 
 // Backward-compatible record-style exports (used by CollectionScreen, DeckbuilderScreen, PackOpeningScreen)
 export const TYPE_CSS: Record<number, string> = new Proxy({} as Record<number, string>, {
-  get(_t, prop) { return getCardTypeById(Number(prop))?.css ?? 'monster'; },
+  get(_t, prop) { return getCardTypeById(Number(prop))?.key.toLowerCase() ?? 'monster'; },
 });
 export const ATTR_CSS: Record<number, string> = new Proxy({} as Record<number, string>, {
   get(_t, prop) { return getAttrById(Number(prop))?.key ?? 'spell'; },
@@ -158,7 +158,7 @@ export function cardInnerHTML(card: any, _dimmed = false, _rotated = false, fc: 
 
   const raceMeta   = card.race ? getRaceById(card.race) : undefined;
   const raceColor  = raceMeta?.color ?? '#444';
-  const raceLabel  = raceMeta?.abbr ?? '';
+  const raceLabel  = raceMeta?.value ?? '';
   const raceBadge  = card.race
     ? `<span class="card-race-badge" style="background:${raceColor}">${raceLabel || card.race}</span>`
     : '';
@@ -166,7 +166,7 @@ export function cardInnerHTML(card: any, _dimmed = false, _rotated = false, fc: 
   const rarMeta     = card.rarity ? getRarityById(card.rarity) : undefined;
   const rarityColor = rarMeta?.color ?? '#aaa';
   const rarityTextH = card.rarity
-    ? `<span class="card-rarity-text" style="color:${rarityColor}">${rarMeta?.name ?? ''}</span>`
+    ? `<span class="card-rarity-text" style="color:${rarityColor}">${rarMeta?.value ?? ''}</span>`
     : '';
 
   const typeSubtypeStr = isMonster && raceLabel
