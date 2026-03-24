@@ -125,6 +125,10 @@ export interface ValidationResult {
   warnings: string[];
 }
 
+// ── Campaign JSON (alias) ────────────────────────────────
+
+export type { CampaignData as TcgCampaignJson } from '../campaign-types.js';
+
 // ── Load result ──────────────────────────────────────────────
 
 export interface TcgLoadResult {
