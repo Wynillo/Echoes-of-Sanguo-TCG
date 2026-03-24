@@ -10,9 +10,10 @@ import { attachHover }     from '../components/hoverApi.js';
 import { CardType, Race, Rarity, isMonsterType } from '../../types.js';
 import type { CardData }   from '../../types.js';
 import styles from './DeckbuilderScreen.module.css';
+import { GAME_RULES } from '../../rules.js';
 
-const MAX_DECK = 40;
-const MAX_COPIES = 3;
+const MAX_DECK = GAME_RULES.maxDeckSize;
+const MAX_COPIES = GAME_RULES.maxCardCopies;
 
 type ViewMode = 'large' | 'small' | 'table';
 

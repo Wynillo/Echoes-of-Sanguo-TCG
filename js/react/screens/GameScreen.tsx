@@ -10,8 +10,9 @@ import { useKeyboardShortcuts }  from '../hooks/useKeyboardShortcuts.js';
 import { useAnimatedNumber }     from '../hooks/useAnimatedNumber.js';
 import { checkFusion }           from '../../cards.js';
 import { CardType }              from '../../types.js';
+import { GAME_RULES }           from '../../rules.js';
 
-const FIELD_ZONES = [0, 1, 2, 3, 4] as const;
+const FIELD_ZONES = Array.from({length: GAME_RULES.fieldZones}, (_, i) => i);
 
 
 export default function GameScreen() {
@@ -48,7 +49,7 @@ export default function GameScreen() {
   const phase   = gameState.phase;
   const isMyTurn = gameState.activePlayer === 'player';
 
-  const START_LP = 8000;
+  const START_LP = GAME_RULES.startingLP;
   function lpPct(lp: number) { return `${Math.max(0, Math.min(100, lp / START_LP * 100))}%`; }
 
   const selMode = sel.mode;

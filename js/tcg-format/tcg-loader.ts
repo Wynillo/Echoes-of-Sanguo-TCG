@@ -11,6 +11,8 @@ import { validateTcgArchive } from './tcg-validator.js';
 import { intToCardType, intToAttribute, intToRace, intToRarity, intToSpellType, intToTrapTrigger } from './enums.js';
 import { deserializeEffect } from './effect-serializer.js';
 import { CARD_DB, FUSION_RECIPES, OPPONENT_CONFIGS, STARTER_DECKS, PLAYER_DECK_IDS, OPPONENT_DECK_IDS } from '../cards.js';
+import { applyRules } from '../rules.js';
+import type { GameRules } from '../rules.js';
 
 /**
  * Load a .tcg file from a URL or ArrayBuffer.
@@ -74,6 +76,18 @@ export async function loadTcgFile(source: string | ArrayBuffer): Promise<TcgLoad
       meta = JSON.parse(metaJson);
     } catch {
       result.warnings.push('meta.json: failed to parse, skipping');
+    }
+  }
+
+  // Load rules.json if present and apply overrides
+  const rulesFile = zip.file('rules.json');
+  if (rulesFile) {
+    try {
+      const rulesJson = await rulesFile.async('string');
+      const partial: Partial<GameRules> = JSON.parse(rulesJson);
+      applyRules(partial);
+    } catch {
+      result.warnings.push('rules.json: failed to parse, skipping');
     }
   }
 
