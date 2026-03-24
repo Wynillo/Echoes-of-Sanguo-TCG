@@ -11,7 +11,7 @@ npm test               # Run Vitest tests once
 npm run test:watch     # Vitest in watch mode
 npm run test:coverage  # Coverage report (v8)
 npm run test:e2e       # Playwright E2E tests (launches dev server)
-npm run generate:tcg   # Validate public/base.tcg/ folder and pack into public/base.tcg.zip
+npm run generate:tcg   # Validate public/base.tcg-src/ folder and pack into public/base.tcg
 npm run build:android  # Build + Capacitor sync for Android
 npm run cap:sync       # Sync Capacitor changes
 npm run cap:open       # Open Android Studio
@@ -41,7 +41,7 @@ js/
 ├── audio.ts               # Web Audio API singleton
 ├── mod-api.ts             # window.EchoesOfSanguoMod API for community mods
 ├── i18n.ts                # i18next setup (de + en)
-├── main.js                # Entry point (loads base.tcg, mounts React)
+├── main.js                # Entry point (loads base.tcg-src, mounts React)
 ├── tcg-format/            # Binary card format serialization/deserialization
 │   ├── tcg-loader.ts      # Load .tcg folder (trailing /) or ZIP → CARD_DB
 │   ├── tcg-builder.ts     # Build .tcg from card data
@@ -62,7 +62,7 @@ tests-e2e/                 # Playwright E2E tests
 css/                       # style.css, animations.css, progression.css
 locales/                   # de.json, en.json
 public/
-├── base.tcg/              # TCG source folder (served directly by Vite)
+├── base.tcg-src/          # TCG source folder (served directly by Vite)
 │   ├── cards.json         # Card data (numeric IDs)
 │   ├── races.json         # Race metadata { id, key, value, color, icon }
 │   ├── attributes.json    # Attribute metadata { id, key, value, color, symbol }
@@ -120,7 +120,7 @@ All user-facing strings go through i18next. Translation files: `locales/de.json`
 
 ## TCG Source Files
 
-`public/base.tcg/` is the **source folder** for the base card set. All JSON files
+`public/base.tcg-src/` is the **source folder** for the base card set. All JSON files
 and assets live here and are served directly by Vite during development.
 
 Metadata files use a uniform `{ id, key, value, color }` schema where:
@@ -129,8 +129,8 @@ Metadata files use a uniform `{ id, key, value, color }` schema where:
 - `icon` (races) and `symbol` (attributes) are optional extra fields
 
 For distribution as a standalone `.tcg` archive, run `npm run generate:tcg` to pack
-the folder contents into a ZIP at `public/base.tcg.zip`. Keep both the folder and
-any distributed archive in sync — changes to one must be reflected in the other.
+the folder contents into `public/base.tcg`. Keep both the source folder and
+the distributed archive in sync — changes to one must be reflected in the other.
 
 ## Key Types (js/types.ts)
 

@@ -12,7 +12,7 @@ global.localStorage = {
   clear:      ()     => { Object.keys(store).forEach(k => delete store[k]); },
 };
 
-// Load card database from public/base.tcg/ folder so engine tests have real card data.
+// Load card database from public/base.tcg-src/ folder so engine tests have real card data.
 // Only runs in the 'node' vitest environment — jsdom tests don't need card data.
 // Uses JSZip to pack the folder in-memory and load it as a ZIP buffer.
 if (typeof window === 'undefined') {
@@ -23,8 +23,8 @@ if (typeof window === 'undefined') {
   const JSZip = (await import('jszip')).default;
   const { loadTcgFile } = await import('../js/tcg-format/tcg-loader.js');
 
-  // Pack public/base.tcg/ folder into an in-memory ZIP for the loader
-  const folderPath = join(__dirname, '../public/base.tcg');
+  // Pack public/base.tcg-src/ folder into an in-memory ZIP for the loader
+  const folderPath = join(__dirname, '../public/base.tcg-src');
   const zip = new JSZip();
 
   async function addDir(dir, prefix) {

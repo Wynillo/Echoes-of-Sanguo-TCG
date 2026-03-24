@@ -2,9 +2,9 @@
 // ECHOES OF SANGUO — TCG Archive Generator
 // Usage: npm run generate:tcg
 //
-// Validates and reports on the public/base.tcg/ folder structure,
-// then packs it into a distributable ZIP at public/base.tcg.zip.
-// The folder is the source of truth; the ZIP is for distribution.
+// Validates and reports on the public/base.tcg-src/ folder structure,
+// then packs it into a distributable archive at public/base.tcg.
+// The folder is the source of truth; the archive is for distribution.
 // ============================================================
 
 import { readFile, writeFile, readdir, stat } from 'node:fs/promises';
@@ -14,8 +14,8 @@ import JSZip from 'jszip';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT  = resolve(__dirname, '../../');
-const TCG_FOLDER = join(REPO_ROOT, 'public/base.tcg');
-const OUT_ZIP    = join(REPO_ROOT, 'public/base.tcg.zip');
+const TCG_FOLDER = join(REPO_ROOT, 'public/base.tcg-src');
+const OUT_ZIP    = join(REPO_ROOT, 'public/base.tcg');
 
 async function addDirToZip(zip: JSZip, dir: string, zipPrefix: string): Promise<number> {
   let count = 0;
@@ -39,7 +39,7 @@ async function main() {
   try {
     await stat(TCG_FOLDER);
   } catch {
-    throw new Error(`public/base.tcg/ folder not found at ${TCG_FOLDER}`);
+    throw new Error(`public/base.tcg-src/ folder not found at ${TCG_FOLDER}`);
   }
 
   // Required files check
