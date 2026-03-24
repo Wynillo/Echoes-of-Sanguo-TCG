@@ -13,6 +13,7 @@ import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import JSZip from 'jszip';
 import type { TcgOpponentDeck } from './types.js';
+import { SHOP_DATA } from '../shop-data.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, '../../');
@@ -51,6 +52,11 @@ async function main() {
     console.log(`  opponents/${filename} (id=${parsed.id}, name=${parsed.name})`);
     zip.file(`opponents/${filename}`, JSON.stringify(parsed));
   }
+
+  // Add shop.json from SHOP_DATA defaults
+  const shopJson = JSON.stringify(SHOP_DATA, null, 2);
+  zip.file('shop.json', shopJson);
+  console.log('Added shop.json');
 
   // Write back to public/base.tcg
   const out = await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
