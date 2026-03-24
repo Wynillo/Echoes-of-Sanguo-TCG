@@ -1,8 +1,8 @@
 // ============================================================
 // ECHOES OF SANGUO — Centralized Enum Metadata
 // Single source of truth for race/attribute/rarity/cardType display data.
-// Populated with defaults at module load; can be overridden by types.json
-// from a .tcg archive via applyTypeMeta().
+// Populated with defaults at module load; can be overridden by races.json,
+// attributes.json, card_types.json, rarities.json from a .tcg folder/archive.
 // ============================================================
 
 import { CardType, Attribute, Race, Rarity } from './types.js';
@@ -11,33 +11,32 @@ import { CardType, Attribute, Race, Rarity } from './types.js';
 
 export interface RaceMeta {
   id:     number;
-  key:    string;   // i18n suffix, e.g. 'drache' → t('cards.race_drache')
+  key:    string;   // stable PascalCase identifier (e.g. 'Dragon')
+  value:  string;   // display label (localized)
   color:  string;   // primary display color (hex)
   icon:   string;   // emoji icon for filter buttons
-  symbol: string;   // symbol for opponent tiles
-  abbr:   string;   // abbreviated display name (German)
 }
 
 export interface AttributeMeta {
   id:     number;
-  key:    string;   // lowercase key, e.g. 'fire'
+  key:    string;   // stable PascalCase identifier (e.g. 'Light')
+  value:  string;   // display label (localized)
   color:  string;   // attribute orb color
   symbol: string;   // attribute symbol character
-  name:   string;   // display name (German)
 }
 
 export interface RarityMeta {
   id:     number;
-  key:    string;   // lowercase key, e.g. 'common'
+  key:    string;   // stable PascalCase identifier (e.g. 'Common')
+  value:  string;   // display label
   color:  string;   // display color
-  name:   string;   // display name
 }
 
 export interface CardTypeMeta {
   id:     number;
-  key:    string;   // lowercase key, e.g. 'monster'
-  label:  string;   // display label (German)
-  css:    string;   // CSS class prefix
+  key:    string;   // stable PascalCase identifier (e.g. 'Monster')
+  value:  string;   // display label (localized)
+  color:  string;   // display color
 }
 
 // ── Central store ──────────────────────────────────────────
@@ -92,46 +91,46 @@ export function getAllRarities(): readonly RarityMeta[] { return TYPE_META.rarit
 
 export function initDefaults(): void {
   TYPE_META.races = [
-    { id: Race.Dragon,      key: 'drache',  color: '#8040c0', icon: '🐲', symbol: '⚡', abbr: 'Drache' },
-    { id: Race.Spellcaster, key: 'magier',  color: '#6060c0', icon: '🔮', symbol: '✦', abbr: 'Magier' },
-    { id: Race.Warrior,     key: 'krieger', color: '#c09030', icon: '⚔️', symbol: '⚔', abbr: 'Krieger' },
-    { id: Race.Fire,        key: 'feuer',   color: '#e05030', icon: '🔥', symbol: '♨', abbr: 'Feuer' },
-    { id: Race.Plant,       key: 'pflanze', color: '#40a050', icon: '🌿', symbol: '✿', abbr: 'Pflanze' },
-    { id: Race.Stone,       key: 'stein',   color: '#808060', icon: '🪨', symbol: '⬡', abbr: 'Stein' },
-    { id: Race.Flyer,       key: 'flug',    color: '#4090c0', icon: '🦅', symbol: '🜁', abbr: 'Flug' },
-    { id: Race.Elf,         key: 'elfe',    color: '#90c060', icon: '✨', symbol: '☽', abbr: 'Elfe' },
-    { id: Race.Demon,       key: 'daemon',  color: '#804090', icon: '💀', symbol: '☠', abbr: 'Dämon' },
-    { id: Race.Water,       key: 'wasser',  color: '#3080b0', icon: '🌊', symbol: '≋', abbr: 'Wasser' },
+    { id: Race.Dragon,      key: 'Dragon',      value: 'Dragon',      color: '#8040c0', icon: '🐲' },
+    { id: Race.Spellcaster, key: 'Spellcaster', value: 'Spellcaster', color: '#6060c0', icon: '🔮' },
+    { id: Race.Warrior,     key: 'Warrior',     value: 'Warrior',     color: '#c09030', icon: '⚔️' },
+    { id: Race.Fire,        key: 'Fire',        value: 'Fire',        color: '#e05030', icon: '🔥' },
+    { id: Race.Plant,       key: 'Plant',       value: 'Plant',       color: '#40a050', icon: '🌿' },
+    { id: Race.Stone,       key: 'Stone',       value: 'Stone',       color: '#808060', icon: '🪨' },
+    { id: Race.Flyer,       key: 'Flyer',       value: 'Flyer',       color: '#4090c0', icon: '🦅' },
+    { id: Race.Elf,         key: 'Elf',         value: 'Elf',         color: '#90c060', icon: '✨' },
+    { id: Race.Demon,       key: 'Demon',       value: 'Demon',       color: '#804090', icon: '💀' },
+    { id: Race.Water,       key: 'Water',       value: 'Water',       color: '#3080b0', icon: '🌊' },
   ];
 
   TYPE_META.attributes = [
-    { id: Attribute.Light, key: 'light', color: '#c09000', symbol: '☀', name: 'Licht' },
-    { id: Attribute.Dark,  key: 'dark',  color: '#7020a0', symbol: '☽', name: 'Dunkel' },
-    { id: Attribute.Fire,  key: 'fire',  color: '#c0300a', symbol: '♨', name: 'Feuer' },
-    { id: Attribute.Water, key: 'water', color: '#1a6aaa', symbol: '◎', name: 'Wasser' },
-    { id: Attribute.Earth, key: 'earth', color: '#6a7030', symbol: '◆', name: 'Erde' },
-    { id: Attribute.Wind,  key: 'wind',  color: '#4a6080', symbol: '∿', name: 'Wind' },
+    { id: Attribute.Light, key: 'Light', value: 'Light', color: '#c09000', symbol: '☀' },
+    { id: Attribute.Dark,  key: 'Dark',  value: 'Dark',  color: '#7020a0', symbol: '☽' },
+    { id: Attribute.Fire,  key: 'Fire',  value: 'Fire',  color: '#c0300a', symbol: '♨' },
+    { id: Attribute.Water, key: 'Water', value: 'Water', color: '#1a6aaa', symbol: '◎' },
+    { id: Attribute.Earth, key: 'Earth', value: 'Earth', color: '#6a7030', symbol: '◆' },
+    { id: Attribute.Wind,  key: 'Wind',  value: 'Wind',  color: '#4a6080', symbol: '∿' },
   ];
 
   TYPE_META.rarities = [
-    { id: Rarity.Common,    key: 'common',    color: '#aaa',    name: 'Common' },
-    { id: Rarity.Uncommon,  key: 'uncommon',  color: '#7ec8e3', name: 'Uncommon' },
-    { id: Rarity.Rare,      key: 'rare',      color: '#f5c518', name: 'Rare' },
-    { id: Rarity.SuperRare, key: 'superRare', color: '#c084fc', name: 'Super Rare' },
-    { id: Rarity.UltraRare, key: 'ultraRare', color: '#f97316', name: 'Ultra Rare' },
+    { id: Rarity.Common,    key: 'Common',    value: 'Common',     color: '#aaa' },
+    { id: Rarity.Uncommon,  key: 'Uncommon',  value: 'Uncommon',   color: '#7ec8e3' },
+    { id: Rarity.Rare,      key: 'Rare',      value: 'Rare',       color: '#f5c518' },
+    { id: Rarity.SuperRare, key: 'SuperRare', value: 'Super Rare', color: '#c084fc' },
+    { id: Rarity.UltraRare, key: 'UltraRare', value: 'Ultra Rare', color: '#f97316' },
   ];
 
   TYPE_META.cardTypes = [
-    { id: CardType.Monster, key: 'monster', label: 'Normal', css: 'monster' },
-    { id: CardType.Fusion,  key: 'fusion',  label: 'Fusion', css: 'fusion' },
-    { id: CardType.Spell,   key: 'spell',   label: 'Zauber', css: 'spell' },
-    { id: CardType.Trap,    key: 'trap',    label: 'Falle',  css: 'trap' },
+    { id: CardType.Monster, key: 'Monster', value: 'Monster',        color: '#c8a850' },
+    { id: CardType.Fusion,  key: 'Fusion',  value: 'Fusion Monster', color: '#a050c0' },
+    { id: CardType.Spell,   key: 'Spell',   value: 'Spell',          color: '#1dc0a0' },
+    { id: CardType.Trap,    key: 'Trap',    value: 'Trap',            color: '#bc2060' },
   ];
 
   rebuildIndices();
 }
 
-// ── Apply external metadata (from types.json in .tcg archive) ──
+// ── Apply external metadata (from races/attributes/card_types/rarities JSON) ──
 
 export interface TypeMetaData {
   races?:      RaceMeta[];
