@@ -93,9 +93,7 @@ export const Progression = (() => {
       // Set version stamp if missing (saves from before v1)
       if (!localStorage.getItem(KEYS.version)) _save(KEYS.version, 1);
 
-      // v1 → v2: card IDs changed from string format ("M001") to numeric strings ("1").
-      // Old IDs are unresolvable without the removed id_migration.json, so reset
-      // collection and deck if old-format IDs are detected.
+      // v1 → v2: reset collection and deck if old-format IDs are detected.
       const savedVersion = _load(KEYS.version, 0, v => typeof v === 'number');
       if (savedVersion < 2) {
         const col = _load(KEYS.collection, [], v => Array.isArray(v)) as Array<{ id: string }>;
@@ -113,6 +111,29 @@ export const Progression = (() => {
         }
         _save(KEYS.version, SAVE_VERSION);
       }
+    }
+  }
+
+  /** Check if a v1 backup exists and can be restored */
+  function hasV1Backup(): boolean {
+    return localStorage.getItem('tcg_collection_v1_backup') !== null;
+  }
+
+  /** Attempt to restore the backed-up v1 collection (best-effort) */
+  function restoreV1Backup(): boolean {
+    try {
+      const raw = localStorage.getItem('tcg_collection_v1_backup');
+      if (!raw) return false;
+      const col = JSON.parse(raw);
+      if (!Array.isArray(col)) return false;
+      _save(KEYS.collection, col);
+      const deckRaw = localStorage.getItem('tcg_deck_v1_backup');
+      if (deckRaw) localStorage.setItem(KEYS.deck, deckRaw);
+      console.info('[Progression] Restored v1 backup successfully.');
+      return true;
+    } catch {
+      console.warn('[Progression] Failed to restore v1 backup.');
+      return false;
     }
   }
 
@@ -382,6 +403,9 @@ export const Progression = (() => {
     saveCampaignProgress,
     markNodeComplete,
     isNodeComplete,
+    // v1 Migration Recovery
+    hasV1Backup,
+    restoreV1Backup,
     // Debug
     resetAll,
     // Soft-Reset
