@@ -99,6 +99,18 @@ export async function loadTcgFile(source: string | ArrayBuffer): Promise<TcgLoad
     try {
       const shopJson = await shopFile.async('string');
       const shopData: TcgShopJson = JSON.parse(shopJson);
+      // Resolve background image paths → blob URLs
+      if (shopData.backgrounds) {
+        const resolvedBgs: Record<string, string> = {};
+        for (const [key, path] of Object.entries(shopData.backgrounds)) {
+          const imgFile = zip.file(path);
+          if (imgFile) {
+            const blob = await imgFile.async('blob');
+            resolvedBgs[key] = URL.createObjectURL(blob);
+          }
+        }
+        shopData.backgrounds = resolvedBgs;
+      }
       applyShopData(shopData);
     } catch {
       result.warnings.push('shop.json: failed to parse, using defaults');
@@ -129,7 +141,7 @@ export async function loadTcgFile(source: string | ArrayBuffer): Promise<TcgLoad
     : '';
   if (definitions.size === 0) {
     result.warnings.push('No card definitions found in TCG archive');
-    return result;
+    return { cards, definitions, images, meta, manifest, warnings: result.warnings };
   }
   const defs = definitions.get(lang) ?? definitions.values().next().value!;
   const defMap = new Map<number, TcgCardDefinition>();

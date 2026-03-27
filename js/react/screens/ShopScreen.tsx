@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { useScreen }      from '../contexts/ScreenContext.js';
 import { useProgression } from '../contexts/ProgressionContext.js';
+import { useCampaign }    from '../contexts/CampaignContext.js';
 import { Progression }    from '../../progression.js';
 import { getAllRaces, getRaceByKey } from '../../type-metadata.js';
 import { PACK_TYPES, openPack, openPackage, isPackageUnlocked } from '../utils/pack-logic.js';
@@ -15,6 +16,8 @@ import styles from './ShopScreen.module.css';
 export default function ShopScreen() {
   const { navigateTo } = useScreen();
   const { coins, refresh } = useProgression();
+  const { progress } = useCampaign();
+  const bgUrl = SHOP_DATA.backgrounds[progress.currentChapter] ?? SHOP_DATA.backgrounds['ch1'] ?? '';
 
   function buyPackage(packageId: string) {
     const pkg = SHOP_DATA.packages.find(p => p.id === packageId);
@@ -44,6 +47,7 @@ export default function ShopScreen() {
 
   return (
     <div className={styles.screen}>
+      <div className={styles.shopBg} style={{ backgroundImage: `url(${bgUrl})` }} />
       <div className={styles.header}>
         <h2 className={styles.shopTitle}>{t('shop.title')}</h2>
         <div className={styles.coinsBar}>
