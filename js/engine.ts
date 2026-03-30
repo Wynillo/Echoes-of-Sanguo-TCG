@@ -1,7 +1,3 @@
-// ============================================================
-// ECHOES OF SANGUO - Game Engine
-// ============================================================
-
 import { CARD_DB, OPPONENT_DECK_IDS, PLAYER_DECK_IDS, makeDeck, checkFusion, resolveFusionChain } from './cards.js';
 import { executeEffectBlock, matchesFilter } from './effect-registry.js';
 import { CardType } from './types.js';
@@ -11,7 +7,6 @@ import { TriggerBus } from './trigger-bus.js';
 // Re-export for backwards compatibility
 export { meetsEquipRequirement } from './types.js';
 
-// ── Serialized checkpoint types (for save/restore) ───────
 export interface SerializedFieldCardData {
   cardId: string;
   position: Position;
@@ -68,7 +63,6 @@ import { aiTurn } from './ai-orchestrator.js';
 export { EchoesOfSanguo } from './debug-logger.js';
 export { FieldCard, FieldSpellTrap } from './field.js';
 
-// ── GameEngine ─────────────────────────────────────────────
 export class GameEngine {
   state!: GameState; // initialized in initGame() before any gameplay method is called
   ui: UICallbacks;
@@ -79,7 +73,7 @@ export class GameEngine {
   _duelEnded = false;
 
   constructor(uiCallbacks: UICallbacks){
-    this.ui = uiCallbacks; // { render, log, prompt, showResult, onDuelEnd }
+    this.ui = uiCallbacks;
     this._trapResolve = null;
     this._currentOpponentId = null;
   }
@@ -96,11 +90,6 @@ export class GameEngine {
     };
   }
 
-  // ───────── Init ─────────────────────────────────────────
-  /**
-   * @param {string[]} playerDeckIds  - Player card IDs
-   * @param {object}   opponentConfig - { id, deckIds } from OPPONENT_CONFIGS
-   */
   async initGame(playerDeckIds: string[], opponentConfig: OpponentConfig | null){
     EchoesOfSanguo.startSession();
     this._initStats();
@@ -109,11 +98,10 @@ export class GameEngine {
     this._currentOpponentId = (opponentConfig && opponentConfig.id) ? opponentConfig.id : null;
     this._aiBehavior = resolveAIBehavior(opponentConfig?.behaviorId);
 
-    // Coin toss: determine who goes first
     const playerGoesFirst = Math.random() < 0.5;
 
     this.state = {
-      phase: 'main',        // 'draw'|'main'|'battle'|'end'
+      phase: 'main',
       turn: 1,
       activePlayer: playerGoesFirst ? 'player' : 'opponent',
       player: {
@@ -139,7 +127,6 @@ export class GameEngine {
     this.drawCard('opponent', 5);
     this.addLog('=== Duel begins! ===');
 
-    // Show coin toss result
     if(this.ui.showCoinToss) await this.ui.showCoinToss(playerGoesFirst);
 
     if(playerGoesFirst){
@@ -150,7 +137,6 @@ export class GameEngine {
       this.addLog('Opponent goes first!');
       this.state.phase = 'draw';
       this.ui.render(this.state);
-      // Run AI turn
       setTimeout(() => {
         aiTurn(this).catch(err => {
           EchoesOfSanguo.log('ERROR', 'AI turn crashed:', err);
@@ -165,10 +151,6 @@ export class GameEngine {
     }
   }
 
-  /**
-   * Restore a saved game state (for duel checkpoint resume).
-   * Reconstructs CardData from CARD_DB and FieldCard/FieldSpellTrap instances.
-   */
   restoreGame(checkpoint: SerializedCheckpoint): void {
     EchoesOfSanguo.startSession();
     this._initStats();
@@ -220,7 +202,6 @@ export class GameEngine {
       log: checkpoint.log,
     } as GameState;
 
-    // Rebuild equippedCards references on FieldCards from spell/trap zones
     for (const side of ['player', 'opponent'] as Owner[]) {
       for (const fst of this.state[side].field.spellTraps) {
         if (!fst || fst.card.type !== CardType.Equipment || fst.equippedOwner === undefined || fst.equippedMonsterZone === undefined) continue;
@@ -235,7 +216,6 @@ export class GameEngine {
     this.addLog('--- Duel resumed ---');
     this.ui.render(this.state);
 
-    // If it was the opponent's turn, resume AI
     if (this.state.activePlayer === 'opponent') {
       setTimeout(() => {
         aiTurn(this).catch(err => {
@@ -253,7 +233,6 @@ export class GameEngine {
 
   getState(): GameState { return this.state; }
 
-  // ───────── Utility ──────────────────────────────────────
   _shuffle<T>(arr: T[]): T[] {
     for(let i=arr.length-1;i>0;i--){
       const j=Math.floor(Math.random()*(i+1));
@@ -269,7 +248,6 @@ export class GameEngine {
     this.ui.log(msg);
   }
 
-  /** Safely execute an effect block, logging errors without crashing. */
   private _safeExecuteEffect(block: CardEffectBlock, ctx: EffectContext, cardId: string, label: string): EffectSignal | null {
     try {
       return executeEffectBlock(block, ctx);
@@ -326,7 +304,6 @@ export class GameEngine {
   _endDuel(result: 'victory' | 'defeat'){
     if(this._duelEnded) return;
     this._duelEnded = true;
-    // Snapshot final stats from current game state
     this._stats.turns = this.state.turn;
     this._stats.lpRemaining = this.state.player.lp;
     this._stats.opponentLpRemaining = this.state.opponent.lp;
@@ -349,7 +326,6 @@ export class GameEngine {
     this._endDuel('defeat');
   }
 
-  // ───────── Draw ─────────────────────────────────────────
   drawCard(owner: Owner, count = 1){
     const st = this.state[owner];
     let drawn = 0;
@@ -359,7 +335,6 @@ export class GameEngine {
       st.hand.push(card);
       drawn++;
     }
-    // hand limit (draw cap)
     while(st.hand.length > GAME_RULES.handLimitDraw) st.hand.shift();
     if (owner === 'player') this._stats.cardsDrawn += drawn;
     if(drawn > 0 && this.ui.onDraw) this.ui.onDraw(owner, drawn);
@@ -376,7 +351,6 @@ export class GameEngine {
     }
   }
 
-  // ───────── Summon ────────────────────────────────────────
   async summonMonster(owner: Owner, handIndex: number, zone: number, position: Position = 'atk', faceDown=false){
     const st = this.state[owner];
     if(zone < 0 || zone > 4 || st.field.monsters[zone]){
@@ -391,7 +365,6 @@ export class GameEngine {
     this.addLog(`${ownerLabel(owner)}: ${card.name} (${posStr}).`);
     this.ui.playSfx?.('sfx_card_play');
     this._recalcFieldSpellBonuses(fc);
-    // trigger onSummon effect for every summon method
     await this._triggerEffect(fc, owner, 'onSummon', zone);
     TriggerBus.emit('onSummon', { engine: this, owner, card: fc.card, fieldCard: fc, zone });
     this.ui.render(this.state);
@@ -454,7 +427,6 @@ export class GameEngine {
     return true;
   }
 
-  // ───────── Spell / Trap ──────────────────────────────────
   setSpellTrap(owner: Owner, handIndex: number, zone: number){
     const st = this.state[owner];
     if(zone < 0 || zone > 4 || st.field.spellTraps[zone]){
@@ -525,8 +497,6 @@ export class GameEngine {
     return result;
   }
 
-  // ───────── Equipment ──────────────────────────────────────
-
   async equipCard(owner: Owner, handIndex: number, targetOwner: Owner, targetMonsterZone: number): Promise<boolean> {
     const st = this.state[owner];
     const card = st.hand[handIndex];
@@ -541,7 +511,6 @@ export class GameEngine {
       return false;
     }
 
-    // Find empty spell/trap zone on the equipment owner's side
     const zone = st.field.spellTraps.findIndex(z => z === null);
     if (zone === -1) { this.addLog('No free spell/trap zone!'); return false; }
 
@@ -551,7 +520,6 @@ export class GameEngine {
     fst.equippedOwner = targetOwner;
     st.field.spellTraps[zone] = fst;
 
-    // Apply bonuses
     const atkB = card.atkBonus ?? 0;
     const defB = card.defBonus ?? 0;
     targetFC.permATKBonus += atkB;
@@ -565,7 +533,6 @@ export class GameEngine {
     this.ui.playSfx?.('sfx_spell');
     if (this.ui.showActivation) await this.ui.showActivation(card, card.description);
 
-    // Execute effect block if present
     if (card.effect) {
       const ctx: EffectContext = { engine: this, owner, targetFC };
       this._safeExecuteEffect(card.effect, ctx, card.id, 'equipment effect');
@@ -575,10 +542,8 @@ export class GameEngine {
     return true;
   }
 
-  /** Remove all equipment attached to a monster at the given zone/owner, sending them to graveyard. */
   _removeEquipmentForMonster(monsterOwner: Owner, monsterZone: number): void {
     const targetFC = this.state[monsterOwner].field.monsters[monsterZone];
-    // Equipment can be owned by either player — scan both sides
     for (const side of ['player', 'opponent'] as Owner[]) {
       const st = this.state[side];
       for (let z = 0; z < st.field.spellTraps.length; z++) {
@@ -599,8 +564,6 @@ export class GameEngine {
     }
   }
 
-  // ───────── Field Spell ──────────────────────────────────
-
   async activateFieldSpell(owner: Owner, handIndex: number): Promise<boolean> {
     const st = this.state[owner];
     const card = st.hand[handIndex];
@@ -609,7 +572,6 @@ export class GameEngine {
     }
     st.hand.splice(handIndex, 1);
 
-    // Destroy existing field spell if any
     if (st.field.fieldSpell) {
       this._removeFieldSpell(owner);
     }
@@ -620,7 +582,6 @@ export class GameEngine {
     this.ui.playSfx?.('sfx_spell');
     if (this.ui.showActivation) await this.ui.showActivation(card, card.description);
 
-    // Apply continuous buffs/debuffs to all monsters on both sides
     this._recalcAllFieldSpellBonuses();
     this.ui.render(this.state);
     return true;
@@ -635,11 +596,9 @@ export class GameEngine {
     st.field.fieldSpell = null;
     this.addLog(`${fs.card.name} was destroyed.`);
 
-    // Recalculate field spell bonuses for all monsters (both sides)
     this._recalcAllFieldSpellBonuses();
   }
 
-  /** Recalculate field spell bonuses for ALL monsters on both sides. */
   _recalcAllFieldSpellBonuses(): void {
     for (const side of ['player', 'opponent'] as Owner[]) {
       for (const fc of this.state[side].field.monsters) {
@@ -649,7 +608,6 @@ export class GameEngine {
     }
   }
 
-  /** Recalculate field spell bonuses for a single monster from both players' field spells. */
   _recalcFieldSpellBonuses(fc: FieldCard): void {
     let atkBuff = 0;
     let defBuff = 0;
@@ -669,7 +627,6 @@ export class GameEngine {
     fc.fieldSpellDEFBonus = defBuff;
   }
 
-  // ───────── Fusion ────────────────────────────────────────
   canFuse(owner: Owner){
     const hand = this.state[owner].hand;
     for(let i=0;i<hand.length;i++){
@@ -717,7 +674,6 @@ export class GameEngine {
     // Play merge animation before removing cards from hand
     await this.ui.playFusionAnimation?.(owner, handIdx1, handIdx2, zone);
 
-    // remove materials
     hand.splice(hi, 1);
     hand.splice(lo, 1);
     st.graveyard.push(card1);
@@ -746,7 +702,6 @@ export class GameEngine {
 
     if (handIndices.length === 0) return false;
 
-    // Single card = normal summon shortcut
     if (handIndices.length === 1) {
       const zone = st.field.monsters.findIndex(z => z === null);
       if (zone === -1) { this.addLog('No free zone!'); return false; }
@@ -756,32 +711,27 @@ export class GameEngine {
     const zone = st.field.monsters.findIndex(z => z === null);
     if (zone === -1) { this.addLog('No free zone for fusion monster!'); return false; }
 
-    // Validate all indices are in bounds
     if (!handIndices.every(i => i >= 0 && i < hand.length)) {
       this.addLog('Invalid hand index for fusion!'); return false;
     }
 
-    // Resolve chain using FM rules
     const cardIds = handIndices.map(i => hand[i].id);
     const chain = resolveFusionChain(cardIds);
 
     const finalCard = CARD_DB[chain.finalCardId];
     if (!finalCard) { this.addLog('Fusion chain failed!'); return false; }
 
-    // Build log message showing the chain
     const cardNames = handIndices.map(i => hand[i].name);
     if (owner === 'player') this._stats.fusionsPerformed++; else this._stats.opponentFusionsPerformed++;
     this.addLog(`${ownerLabel(owner)}: FUSION! ${cardNames.join(' + ')} = ${finalCard.name}!`);
     this.ui.playSfx?.('sfx_fusion');
 
-    // Play animation
     if (this.ui.playFusionChainAnimation) {
       await this.ui.playFusionChainAnimation(owner, handIndices, zone);
     } else if (this.ui.playFusionAnimation && handIndices.length >= 2) {
       await this.ui.playFusionAnimation(owner, handIndices[0], handIndices[1], zone);
     }
 
-    // Collect the actual CardData objects before removing from hand
     const removedCards = handIndices.map(i => hand[i]);
 
     // Remove cards from hand in descending index order to avoid shift issues
@@ -802,7 +752,6 @@ export class GameEngine {
       }
     }
 
-    // Place final result on field
     const resultCard = Object.assign({}, finalCard);
     const fc = new FieldCard(resultCard, 'atk');
     fc.summonedThisTurn = false; // fusion result can attack immediately
@@ -816,7 +765,6 @@ export class GameEngine {
     return true;
   }
 
-  // ───────── Battle ────────────────────────────────────────
   async attack(attackerOwner: Owner, attackerZone: number, defenderZone: number){
     const atkSt  = this.state[attackerOwner];
     const defOwn = attackerOwner === 'player' ? 'opponent' : 'player';
@@ -825,7 +773,6 @@ export class GameEngine {
     const attFC = atkSt.field.monsters[attackerZone];
     if(!attFC){ this.addLog('No attacking monster!'); return; }
     if(attFC.hasAttacked){ this.addLog(`${attFC.card.name} has already attacked!`); return; }
-    // auto-flip face-down attacker
     if(attFC.faceDown){
       attFC.faceDown = false;
       attFC.position = 'atk';
@@ -836,12 +783,10 @@ export class GameEngine {
     if(attFC.position !== 'atk'){ this.addLog('Monster must be in attack position!'); return; }
 
     const defFC = defSt.field.monsters[defenderZone];
-    // cantBeAttacked: this monster cannot be selected as attack target
     if(defFC && defFC.cantBeAttacked){
       this.addLog(`${defFC.card.name} cannot be attacked!`); return;
     }
 
-    // Check player traps if attacker is opponent
     if(attackerOwner === 'opponent'){
       const trapResult = await this._promptPlayerTraps('onAttack', attFC);
       if(trapResult && trapResult.cancelAttack){ attFC.hasAttacked = true; this.ui.render(this.state); return; }
@@ -854,7 +799,6 @@ export class GameEngine {
     attFC.hasAttacked = true;
 
     if(!defFC){
-      // direct attack
       this.addLog(`${attFC.card.name} attacks directly!`);
       if(this.ui.playAttackAnimation) await this.ui.playAttackAnimation(attackerOwner, attackerZone, defOwn, null);
       this.dealDamage(defOwn, attFC.effectiveATK());
@@ -875,7 +819,6 @@ export class GameEngine {
       this.addLog('Opponent has monsters on the field!'); return;
     }
     if(attFC.hasAttacked) return;
-    // auto-flip face-down attacker
     if(attFC.faceDown){
       attFC.faceDown = false;
       attFC.position = 'atk';
@@ -927,7 +870,6 @@ export class GameEngine {
         await this._destroyMonster(defOwner, defZone, 'battle', atkOwner);
         this.dealDamage(defOwner, dmg);
         if(this._duelEnded) return;
-        // attacker effect: onDestroyByBattle
         await this._triggerEffect(attFC, atkOwner, 'onDestroyByBattle', null);
         TriggerBus.emit('onDestroyByBattle', { engine: this, owner: atkOwner, card: attFC.card, fieldCard: attFC });
       } else if(effATK === defVal){
@@ -946,7 +888,6 @@ export class GameEngine {
         TriggerBus.emit('onDestroyByBattle', { engine: this, owner: defOwner, card: defFC.card, fieldCard: defFC });
       }
     } else {
-      // defender in DEF mode
       if(effATK > defVal){
         this.addLog(`${defFC.card.name} (DEF) destroyed!`);
         await this._destroyMonster(defOwner, defZone, 'battle', atkOwner);
@@ -967,7 +908,6 @@ export class GameEngine {
     const st  = this.state[owner];
     const fc  = st.field.monsters[zone];
     if(!fc) return;
-    // Indestructible: cannot be destroyed by battle
     if(fc.indestructible && reason === 'battle'){
       this.addLog(`${fc.card.name} is indestructible!`);
       return;
@@ -985,7 +925,6 @@ export class GameEngine {
     this._removeEquipmentForMonster(owner, zone);
     this.ui.render(this.state);
 
-    // Phoenix Revival: revive once after destruction
     if (fc.phoenixRevival && !fc.phoenixRevivalUsed) {
       this.addLog(`${fc.card.name} rises from the graveyard!`);
       const revived = await this.specialSummonFromGrave(owner, fc.card);
@@ -1044,9 +983,7 @@ export class GameEngine {
     this._safeExecuteEffect(card.effect, ctx, card.id, 'flip effect');
   }
 
-  // ───────── Trap prompts ──────────────────────────────────
   async _promptPlayerTraps(triggerType: string, ...args: FieldCard[]){
-    // check player's face-down traps
     const traps = this.state.player.field.spellTraps;
     for(let i=0;i<traps.length;i++){
       const fst = traps[i];
@@ -1085,7 +1022,6 @@ export class GameEngine {
     return null;
   }
 
-  // ───────── Phase management ──────────────────────────────
   advancePhase(){
     const phases = ['main','battle','end'];
     const idx = phases.indexOf(this.state.phase);
@@ -1116,15 +1052,12 @@ export class GameEngine {
     // The opponent's flags are cleared by _aiTurn at the end of the AI's turn.
     this._resetMonsterFlags('player');
 
-    // reset per-turn summon limit
     this.state.player.normalSummonUsed   = false;
     this.state.opponent.normalSummonUsed = false;
 
-    // discard to end-of-turn hand limit
     const hand = this.state.player.hand;
     while(hand.length > GAME_RULES.handLimitEnd){ hand.shift(); }
 
-    // switch player
     this.state.activePlayer = 'opponent';
     this.state.phase = 'draw';
     this.state.turn++;
@@ -1132,7 +1065,6 @@ export class GameEngine {
     this.addLog(`=== Round ${this.state.turn} - Opponent's turn ===`);
     this.ui.render(this.state);
 
-    // run AI
     setTimeout(() => {
       aiTurn(this).catch(err => {
         EchoesOfSanguo.log('ERROR', 'AI turn crashed:', err);
@@ -1149,7 +1081,6 @@ export class GameEngine {
     }, 600);
   }
 
-  // ───────── Position change ───────────────────────────────
   changePosition(owner: Owner, zone: number){
     const fc = this.state[owner].field.monsters[zone];
     if(!fc || fc.summonedThisTurn){ this.addLog('Cannot change position!'); return; }
