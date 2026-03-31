@@ -245,7 +245,8 @@ export function validateShopJson(data: unknown, knownNodeIds?: Set<string>): str
           if (seenIds.has(pkg.id)) warnings.push(`${prefix}: duplicate package id "${pkg.id}"`);
           seenIds.add(pkg.id);
         }
-        if (typeof pkg.name !== 'string') warnings.push(`${prefix}: missing or invalid "name"`);
+        const hasName = typeof pkg.name === 'string' || typeof pkg.nameKey === 'string';
+        if (!hasName) warnings.push(`${prefix}: missing "name" or "nameKey"`);
         if (typeof pkg.price !== 'number' || pkg.price <= 0) warnings.push(`${prefix}: "price" must be a positive number`);
         if (!Array.isArray(pkg.slots) || !(pkg.slots as unknown[]).length) {
           warnings.push(`${prefix}: "slots" must be a non-empty array`);
@@ -493,8 +494,8 @@ export function validateOpponentDeck(data: unknown, index: number, knownCardIds?
   if (typeof o.title !== 'string') {
     warnings.push(`${prefix}: "title" must be a string`);
   }
-  if (typeof o.race !== 'number' || o.race < 1 || o.race > 12) {
-    warnings.push(`${prefix}: "race" must be a number between 1 and 12`);
+  if (typeof o.race !== 'number' || !Number.isInteger(o.race) || o.race < 1) {
+    warnings.push(`${prefix}: "race" must be a positive integer`);
   }
   if (typeof o.coinsWin !== 'number' || o.coinsWin < 0) {
     warnings.push(`${prefix}: "coinsWin" must be a non-negative number`);
