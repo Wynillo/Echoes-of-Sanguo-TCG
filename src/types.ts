@@ -54,14 +54,15 @@ export interface TcgCard {
   rarity:     number;       // 1-8
   type:       number;       // 1-5
   attribute?: number;       // 1-6, absent for Spells/Traps
-  race?:      number;       // 1-12, absent for Spells/Traps
+  race?:      number;       // positive int (base set: 1-12), absent for Spells/Traps
   effect?:    string;       // serialized effect string
+  spirit?:    boolean;      // true if card returns to hand at end of turn
   spellType?:   number;    // 1=normal, 2=targeted, 3=fromGrave
   trapTrigger?: number;    // 1=onAttack, 2=onOwnMonsterAttacked, 3=onOpponentSummon, 4=manual
   target?:      string;    // targeting hint: 'ownMonster', 'oppMonster', etc.
   atkBonus?:    number;    // Equipment: ATK bonus applied to equipped monster
   defBonus?:    number;    // Equipment: DEF bonus applied to equipped monster
-  equipReqRace?: number;  // Equipment: required race (1-12) for target monster
+  equipReqRace?: number;  // Equipment: required race for target monster
   equipReqAttr?: number;  // Equipment: required attribute (1-6) for target monster
 }
 
@@ -88,6 +89,7 @@ export interface TcgParsedCard {
   attribute?:    number;     // TCG_ATTR_* — same numeric value as Attribute enum
   race?:         number;     // TCG_RACE_* — same numeric value as Race enum
   effect?:       string;     // raw serialized effect string (opaque at format level)
+  spirit?:       boolean;    // true if card returns to hand at end of turn
   spellType?:    number;     // 1=normal, 2=targeted, 3=fromGrave, 4=field
   trapTrigger?:  number;     // 1=onAttack, 2=onOwnMonsterAttacked, 3=onOpponentSummon, 4=manual
   target?:       string;     // targeting hint: 'ownMonster', 'oppMonster', etc.
@@ -103,7 +105,7 @@ export interface TcgOpponentDeck {
   id:        number;
   name:      string;
   title:     string;
-  race:      number;    // TCG int (1-12), converted to Race enum by loader
+  race:      number;    // TCG int (positive), converted to Race enum by loader
   flavor:    string;
   coinsWin:  number;
   coinsLoss: number;
@@ -172,6 +174,26 @@ export interface TcgRarityEntry {
 }
 export type TcgRaritiesJson = TcgRarityEntry[];
 
+// ── Mod Metadata (mod.json) ─────────────────────────────────
+
+export interface TcgModJson {
+  id:           string;
+  name:         string;
+  version:      string;
+  author:       string;
+  description:  string;
+  type:         string;      // 'base' | 'expansion' | 'mod'
+  entrypoint:   string;      // e.g. 'base.tcg'
+  importMethods?: {
+    link?: string;           // download URL
+    file?: string;           // local filename
+  };
+  compatibility?: {
+    minEngineVersion?: string;
+    formatVersion?: number;
+  };
+}
+
 // ── Locale overrides ─────────────────────────────────────────
 // key → translated value
 export type TcgLocaleOverrides = Record<string, string>;
@@ -210,15 +232,36 @@ export interface TcgPackSlot {
   distribution?: Record<string, number>;
 }
 
+export interface TcgCardPoolFilter {
+  races?: number[];
+  attributes?: number[];
+  types?: number[];
+  spellTypes?: number[];
+  ids?: number[];
+  maxRarity?: number;
+  minRarity?: number;
+  maxAtk?: number;
+  maxLevel?: number;
+}
+
+export interface TcgCardPool {
+  include?: TcgCardPoolFilter;
+  exclude?: TcgCardPoolFilter;
+}
+
 export interface TcgPackDef {
   id: string;
-  name: string;
-  desc: string;
+  name?: string;        // direct name (legacy)
+  desc?: string;        // direct description (legacy)
+  nameKey?: string;     // locale key for name (i18n)
+  descKey?: string;     // locale key for description (i18n)
   price: number;
   icon: string;
   color: string;
   slots: TcgPackSlot[];
   filter?: string;
+  cardPool?: TcgCardPool;
+  unlockCondition?: { type: string; nodeId?: string; count?: number } | null;
 }
 
 export interface TcgShopJson {
@@ -283,6 +326,8 @@ export interface TcgLoadResult {
   rawImages:            Map<number, ArrayBuffer>;           // card id -> raw PNG bytes (NOT blob URLs)
   meta?:                TcgMeta;
   manifest?:            TcgManifest;
+  modMeta?:             TcgModJson;                        // mod.json metadata
+  starterDecks?:        Record<string, number[]>;          // standalone starterDecks.json (faction -> card IDs)
   warnings:             string[];
   opponents?:           TcgOpponentDeck[];
   opponentDescriptions?: Map<string, TcgOpponentDescription[]>;  // locale -> descriptions

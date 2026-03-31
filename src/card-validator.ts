@@ -4,10 +4,9 @@
 // ============================================================
 
 import type { ValidationResult } from './types.js';
-import { TCG_TYPES, TCG_ATTRIBUTES, TCG_RACES, TCG_RARITIES, TCG_TYPE_SPELL, TCG_TYPE_TRAP, TCG_TYPE_MONSTER, TCG_TYPE_FUSION, TCG_TYPE_EQUIPMENT } from './types.js';
+import { TCG_TYPES, TCG_ATTRIBUTES, TCG_RARITIES, TCG_TYPE_SPELL, TCG_TYPE_TRAP, TCG_TYPE_MONSTER, TCG_TYPE_FUSION, TCG_TYPE_EQUIPMENT } from './types.js';
 const VALID_TYPES      = new Set(TCG_TYPES);
 const VALID_ATTRIBUTES = new Set(TCG_ATTRIBUTES);
-const VALID_RACES      = new Set(TCG_RACES);
 const VALID_RARITIES   = new Set(TCG_RARITIES);
 
 function validateSingleCard(card: unknown, index: number): string[] {
@@ -77,8 +76,8 @@ function validateSingleCard(card: unknown, index: number): string[] {
       errors.push(`${prefix}.defBonus: must be an integer, got ${c.defBonus}`);
     }
     if (c.equipReqRace !== undefined && c.equipReqRace !== null) {
-      if (typeof c.equipReqRace !== 'number' || !VALID_RACES.has(c.equipReqRace as typeof TCG_RACES[number])) {
-        errors.push(`${prefix}.equipReqRace: must be a valid race, got ${c.equipReqRace}`);
+      if (typeof c.equipReqRace !== 'number' || !Number.isInteger(c.equipReqRace) || c.equipReqRace < 1) {
+        errors.push(`${prefix}.equipReqRace: must be a positive integer, got ${c.equipReqRace}`);
       }
     }
     if (c.equipReqAttr !== undefined && c.equipReqAttr !== null) {
@@ -110,10 +109,10 @@ function validateSingleCard(card: unknown, index: number): string[] {
     }
   }
 
-  // race: optional int 1-12
+  // race: optional positive int (extensible — mods can define races beyond the base 12)
   if (c.race !== undefined && c.race !== null) {
-    if (typeof c.race !== 'number' || !VALID_RACES.has(c.race as typeof TCG_RACES[number])) {
-      errors.push(`${prefix}.race: must be one of [${[...VALID_RACES].join(',')}], got ${c.race}`);
+    if (typeof c.race !== 'number' || !Number.isInteger(c.race) || c.race < 1) {
+      errors.push(`${prefix}.race: must be a positive integer, got ${c.race}`);
     }
   }
 

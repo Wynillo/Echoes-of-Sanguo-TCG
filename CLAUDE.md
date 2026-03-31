@@ -66,23 +66,26 @@ tests/
 |---------|--------|-------|
 | Card Types | 1=Monster, 2=Fusion, 3=Spell, 4=Trap, 5=Equipment | Monsters/Fusions have ATK/DEF/level; Spells have spellType; Traps have trapTrigger; Equipment has bonuses |
 | Attributes | 1=Light, 2=Dark, 3=Fire, 4=Water, 5=Earth, 6=Wind | Optional on monsters/fusions |
-| Races | 1-12 (Dragon, Spellcaster, Warrior, Beast, Plant, Rock, Phoenix, Undead, Aqua, Insect, Machine, Pyro) | Optional on monsters/fusions |
+| Races | Base: 1-12 (Dragon, Spellcaster, Warrior, Beast, Plant, Rock, Phoenix, Undead, Aqua, Insect, Machine, Pyro); extensible by mods (20+) | Optional on monsters/fusions |
 | Rarities | 1=Common, 2=Uncommon, 4=Rare, 6=Super Rare, 8=Ultra Rare | Non-consecutive integers |
 | Levels | 1-12 | Monsters and fusions only |
 
 ## Archive Contents (`.tcg` file)
 
 A `.tcg` file is a ZIP archive containing:
-- `cards.json` (required) — card data array
-- `cards_description.json` (required) — localized card names/descriptions
+- `cards.json` (required) — card data array (supports `spirit: true` flag for spirit monsters)
+- `cards_description.json` (required) — localized card names/descriptions (can also live under `locales/`)
 - `img/` — card artwork PNGs (named by card ID)
 - `manifest.json` — format version, author, features
-- `meta.json` — fusion recipes, opponent configs, starter decks
+- `mod.json` — mod metadata (id, name, version, author, type, compatibility)
+- `meta.json` — fusion recipes, opponent configs, starter decks (legacy)
+- `starterDecks.json` — standalone starter deck definitions (replaces meta.starterDecks)
 - `opponents/` — opponent deck JSON files
-- `opponents_description.json` — localized opponent metadata
+- `opponents_description.json` — localized opponent metadata (can also live under `locales/`)
 - `campaign.json` — story campaign structure
-- `shop.json` — booster pack definitions
+- `shop.json` — booster pack definitions (supports `nameKey`/`descKey` i18n keys and `cardPool` filters)
 - `fusion_formulas.json` — fusion recipe definitions
 - `rules.json` — game rules (opaque to format library)
-- `locales/` — locale override files
+- `locales/` — locale override files (cards_description.json, opponents_description.json, en.json, de.json, etc.)
+- `ui/` — UI assets (shop backgrounds, etc.)
 - `races.json`, `attributes.json`, `card_types.json`, `rarities.json` — metadata lookups

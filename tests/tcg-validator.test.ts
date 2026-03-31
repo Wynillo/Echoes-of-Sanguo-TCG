@@ -185,7 +185,7 @@ describe('validateOpponentDeck', () => {
 
   it('warns on invalid race', () => {
     const opp = {
-      id: 1, name: 'Boss', title: 'The Boss', race: 99,
+      id: 1, name: 'Boss', title: 'The Boss', race: -1,
       flavor: 'Strong', coinsWin: 100, coinsLoss: 10,
       deckIds: [1],
     };

@@ -6,7 +6,7 @@
 // ============================================================
 
 import JSZip from 'jszip';
-import type { TcgCard, TcgCardDefinition, TcgParsedCard, TcgMeta, TcgOpponentDeck, TcgFusionFormula, TcgLocaleOverrides, TcgShopJson, TcgCampaignJson, TcgLoadResult } from './types.js';
+import type { TcgCard, TcgCardDefinition, TcgParsedCard, TcgMeta, TcgModJson, TcgOpponentDeck, TcgFusionFormula, TcgLocaleOverrides, TcgShopJson, TcgCampaignJson, TcgLoadResult } from './types.js';
 import { validateTcgArchive, validateCampaignJson, validateFusionFormulasJson } from './tcg-validator.js';
 
 // ── Error Classes ───────────────────────────────────────────
@@ -80,6 +80,7 @@ function tcgCardToParsedCard(tc: TcgCard, def: TcgCardDefinition | undefined): T
   if (tc.attribute !== undefined) parsed.attribute = tc.attribute;
   if (tc.race !== undefined) parsed.race = tc.race;
   if (tc.effect) parsed.effect = tc.effect;
+  if (tc.spirit) parsed.spirit = tc.spirit;
   if (tc.spellType !== undefined) parsed.spellType = tc.spellType;
   if (tc.trapTrigger !== undefined) parsed.trapTrigger = tc.trapTrigger;
   if (tc.target) parsed.target = tc.target;
@@ -166,6 +167,28 @@ export async function loadTcgFile(
       meta = JSON.parse(await metaFile.async('string'));
     } catch {
       warnings.push('meta.json: failed to parse, skipping');
+    }
+  }
+
+  // Load mod.json if present
+  let modMeta: TcgModJson | undefined;
+  const modFile = zip.file('mod.json');
+  if (modFile) {
+    try {
+      modMeta = JSON.parse(await modFile.async('string'));
+    } catch {
+      warnings.push('mod.json: failed to parse, skipping');
+    }
+  }
+
+  // Load starterDecks.json if present (standalone alternative to meta.starterDecks)
+  let starterDecks: Record<string, number[]> | undefined;
+  const starterDecksFile = zip.file('starterDecks.json');
+  if (starterDecksFile) {
+    try {
+      starterDecks = JSON.parse(await starterDecksFile.async('string'));
+    } catch {
+      warnings.push('starterDecks.json: failed to parse, skipping');
     }
   }
 
@@ -287,6 +310,8 @@ export async function loadTcgFile(
     rawImages,
     meta,
     manifest,
+    modMeta,
+    starterDecks,
     warnings,
     opponents,
     opponentDescriptions,
