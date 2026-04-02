@@ -11,7 +11,7 @@ const FIXTURE_DIR = resolve(__dirname, 'fixtures/base.tcg-src');
 describe('loadTcgFile', () => {
   it('loads a valid archive from ArrayBuffer', async () => {
     const buffer = await packTcgArchiveToBuffer(FIXTURE_DIR);
-    const result = await loadTcgFile(buffer.buffer as ArrayBuffer, { lang: '' });
+    const result = await loadTcgFile(buffer, { lang: '' });
 
     expect(result.cards).toHaveLength(4);
     expect(result.parsedCards).toHaveLength(4);
@@ -25,7 +25,7 @@ describe('loadTcgFile', () => {
 
   it('returns parsed cards with merged locale', async () => {
     const buffer = await packTcgArchiveToBuffer(FIXTURE_DIR);
-    const result = await loadTcgFile(buffer.buffer as ArrayBuffer);
+    const result = await loadTcgFile(buffer);
 
     const dragon = result.parsedCards.find(c => c.id === 1);
     expect(dragon).toBeDefined();
@@ -39,7 +39,7 @@ describe('loadTcgFile', () => {
 
   it('keeps effect as opaque string', async () => {
     const buffer = await packTcgArchiveToBuffer(FIXTURE_DIR);
-    const result = await loadTcgFile(buffer.buffer as ArrayBuffer);
+    const result = await loadTcgFile(buffer);
 
     const spell = result.parsedCards.find(c => c.id === 3);
     expect(spell).toBeDefined();
@@ -49,7 +49,7 @@ describe('loadTcgFile', () => {
 
   it('loads type metadata', async () => {
     const buffer = await packTcgArchiveToBuffer(FIXTURE_DIR);
-    const result = await loadTcgFile(buffer.buffer as ArrayBuffer);
+    const result = await loadTcgFile(buffer);
 
     expect(result.typeMeta).toBeDefined();
     expect(result.typeMeta!.races).toBeDefined();
@@ -60,7 +60,7 @@ describe('loadTcgFile', () => {
 
   it('returns raw images as ArrayBuffers', async () => {
     const buffer = await packTcgArchiveToBuffer(FIXTURE_DIR);
-    const result = await loadTcgFile(buffer.buffer as ArrayBuffer);
+    const result = await loadTcgFile(buffer);
 
     for (const [, imgBuf] of result.rawImages) {
       expect(imgBuf).toBeInstanceOf(ArrayBuffer);
@@ -86,7 +86,7 @@ describe('loadTcgFile', () => {
 
   it('loads starterDecks.json as standalone file', async () => {
     const buffer = await packTcgArchiveToBuffer(FIXTURE_DIR);
-    const result = await loadTcgFile(buffer.buffer as ArrayBuffer);
+    const result = await loadTcgFile(buffer);
 
     expect(result.starterDecks).toBeDefined();
     expect(result.starterDecks!['1']).toEqual([1, 2, 3, 4]);
@@ -107,10 +107,27 @@ describe('loadTcgFile', () => {
     expect(result.cards[0].spirit).toBe(true);
   });
 
+  it('handles Uint8Array with non-zero byteOffset (Buffer pool simulation)', async () => {
+    const buffer = await packTcgArchiveToBuffer(FIXTURE_DIR);
+    // Simulate Node.js Buffer pooling: embed the ZIP data at an offset
+    // inside a larger ArrayBuffer with garbage bytes before it.
+    const padding = 128;
+    const combined = new Uint8Array(padding + buffer.byteLength);
+    // Fill padding with random non-ZIP bytes
+    for (let i = 0; i < padding; i++) combined[i] = 0xff;
+    combined.set(new Uint8Array(buffer), padding);
+    // Create a Uint8Array view that starts at the offset
+    const view = new Uint8Array(combined.buffer, padding, buffer.byteLength);
+
+    const result = await loadTcgFile(view);
+    expect(result.cards).toHaveLength(4);
+    expect(result.parsedCards).toHaveLength(4);
+  });
+
   it('calls onProgress callback', async () => {
     const buffer = await packTcgArchiveToBuffer(FIXTURE_DIR);
     const progress: number[] = [];
-    await loadTcgFile(buffer.buffer as ArrayBuffer, {
+    await loadTcgFile(buffer, {
       onProgress: (p) => progress.push(p),
     });
     expect(progress.length).toBeGreaterThan(0);

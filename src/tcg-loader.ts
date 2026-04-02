@@ -97,14 +97,14 @@ function tcgCardToParsedCard(tc: TcgCard, name: string, description: string): Tc
  * The engine bridge is responsible for populating game stores.
  */
 export async function loadTcgFile(
-  source: string | ArrayBuffer,
+  source: string | ArrayBuffer | Uint8Array,
   options?: { lang?: string; onProgress?: (percent: number) => void },
 ): Promise<TcgLoadResult> {
   const lang = options?.lang ?? '';
   const onProgress = options?.onProgress;
 
   // Fetch if URL
-  let buffer: ArrayBuffer;
+  let buffer: ArrayBuffer | Uint8Array;
   if (typeof source === 'string') {
     let response: Response;
     try {
@@ -114,6 +114,10 @@ export async function loadTcgFile(
     }
     if (!response.ok) throw new TcgNetworkError(source, response.status);
     buffer = await response.arrayBuffer();
+  } else if (ArrayBuffer.isView(source)) {
+    // Handle Uint8Array / Buffer — slice to the correct byte range to avoid
+    // Node.js Buffer pooling issues where .buffer is larger than the data.
+    buffer = source.buffer.slice(source.byteOffset, source.byteOffset + source.byteLength);
   } else {
     buffer = source;
   }
