@@ -13,14 +13,14 @@ import RaceFilterBar from '../components/RaceFilterBar.js';
 import type { CardData }   from '../../types.js';
 import styles from './DeckbuilderScreen.module.css';
 import { GAME_RULES } from '../../rules.js';
+import { GiCrossedSwords, GiShield } from 'react-icons/gi';
 
 const MAX_DECK = GAME_RULES.maxDeckSize;
 const MAX_COPIES = GAME_RULES.maxCardCopies;
 
-type ViewMode = 'large' | 'small' | 'table';
+type ViewMode = 'cards' | 'table';
 type ActiveTab = 'collection' | 'deck';
-type SortColumn = 'id' | 'rarity' | 'name' | 'atk' | 'def' | 'type' | 'race' | 'collection' | 'inDeck' | 'newest';
-type SortDir = 'asc' | 'desc';
+type SortGroup = 'id' | 'rarity' | 'name' | 'atkdef' | 'inDeck';
 
 export default function DeckbuilderScreen() {
   const { navigateTo }                        = useScreen();
@@ -34,11 +34,11 @@ export default function DeckbuilderScreen() {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [visibleCount, setVisibleCount]       = useState(100);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [viewMode, setViewMode]               = useState<ViewMode>('small');
+  const [viewMode, setViewMode]               = useState<ViewMode>('cards');
   const [activeTab, setActiveTab]             = useState<ActiveTab>('collection');
-  const [sortColumn, setSortColumn]           = useState<SortColumn | null>(null);
-  const [sortDirection, setSortDirection]     = useState<SortDir>('asc');
+  const [activeSort, setActiveSort]           = useState<{ group: SortGroup; step: number } | null>(null);
   const [toast, setToast]                     = useState(false);
+  const [flashRow, setFlashRow]               = useState<string | null>(null);
   const [seenCards, setSeenCards]             = useState<Set<string>>(() => Progression.getSeenCards());
 
   useEffect(() => {
@@ -119,37 +119,68 @@ export default function DeckbuilderScreen() {
   // Reset pagination when filters change
   useEffect(() => setVisibleCount(100), [typeFilter, raceFilter, rarityFilter, debouncedSearch, activeTab]);
 
-  // Sorting
-  const sortedCards = useMemo(() => {
-    if (!sortColumn) return displayedCards;
-    const sorted = [...displayedCards].sort((a, b) => {
-      let cmp = 0;
-      switch (sortColumn) {
-        case 'id':         cmp = Number(a.id) - Number(b.id); break;
-        case 'name':       cmp = a.name.localeCompare(b.name); break;
-        case 'atk':        cmp = (a.atk ?? -1) - (b.atk ?? -1); break;
-        case 'def':        cmp = (a.def ?? -1) - (b.def ?? -1); break;
-        case 'rarity':     cmp = (a.rarity ?? 0) - (b.rarity ?? 0); break;
-        case 'type':       cmp = a.type - b.type; break;
-        case 'race':       cmp = (a.race ?? 0) - (b.race ?? 0); break;
-        case 'collection': cmp = (collectionCount[a.id] || 0) - (collectionCount[b.id] || 0); break;
-        case 'inDeck':     cmp = (copyMap[a.id] || 0) - (copyMap[b.id] || 0); break;
-        case 'newest':     cmp = (isNew(a.id) ? 1 : 0) - (isNew(b.id) ? 1 : 0); break;
-      }
-      return sortDirection === 'asc' ? cmp : -cmp;
-    });
-    return sorted;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [displayedCards, sortColumn, sortDirection, collectionCount, copyMap, seenCards]);
-
-  const visibleCards = sortedCards.slice(0, visibleCount);
-
   // Refresh seen cards when collection changes (e.g. after returning from a duel)
   useEffect(() => {
     setSeenCards(Progression.getSeenCards());
   }, [collection]);
 
   function isNew(id: string) { return !seenCards.has(id); }
+
+  // Cycle-sort definitions per column group
+  const sortCycles = useMemo<Record<SortGroup, Array<{ indicator: string; compare: (a: CardData, b: CardData) => number }>>>(() => ({
+    id: [
+      { indicator: ' \u25B2', compare: (a, b) => Number(a.id) - Number(b.id) },
+      { indicator: ' \u25BC', compare: (a, b) => Number(b.id) - Number(a.id) },
+      { indicator: ' \u25B2', compare: (a, b) => (isNew(b.id) ? 1 : 0) - (isNew(a.id) ? 1 : 0) || Number(a.id) - Number(b.id) },
+    ],
+    rarity: [
+      { indicator: ' \u25B2', compare: (a, b) => (a.rarity ?? 0) - (b.rarity ?? 0) },
+      { indicator: ' \u25BC', compare: (a, b) => (b.rarity ?? 0) - (a.rarity ?? 0) },
+    ],
+    name: [
+      { indicator: ' \u25B2', compare: (a, b) => a.name.localeCompare(b.name) },
+      { indicator: ' \u25BC', compare: (a, b) => b.name.localeCompare(a.name) },
+      { indicator: ' \u25B2', compare: (a, b) => a.type - b.type || a.name.localeCompare(b.name) },
+      { indicator: ' \u25BC', compare: (a, b) => b.type - a.type || b.name.localeCompare(a.name) },
+      { indicator: ' \u25B2', compare: (a, b) => (a.race ?? 0) - (b.race ?? 0) || a.name.localeCompare(b.name) },
+      { indicator: ' \u25BC', compare: (a, b) => (b.race ?? 0) - (a.race ?? 0) || b.name.localeCompare(a.name) },
+    ],
+    atkdef: [
+      { indicator: ' \u25B2', compare: (a, b) => (a.atk ?? -1) - (b.atk ?? -1) },
+      { indicator: ' \u25BC', compare: (a, b) => (b.atk ?? -1) - (a.atk ?? -1) },
+      { indicator: ' \u25B2', compare: (a, b) => (a.def ?? -1) - (b.def ?? -1) },
+      { indicator: ' \u25BC', compare: (a, b) => (b.def ?? -1) - (a.def ?? -1) },
+    ],
+    inDeck: [
+      { indicator: ' \u25B2', compare: (a, b) => (copyMap[a.id] || 0) - (copyMap[b.id] || 0) },
+      { indicator: ' \u25BC', compare: (a, b) => (copyMap[b.id] || 0) - (copyMap[a.id] || 0) },
+    ],
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [seenCards, copyMap]);
+
+  const sortedCards = useMemo(() => {
+    if (!activeSort) return displayedCards;
+    const { group, step } = activeSort;
+    const mode = sortCycles[group][step];
+    if (!mode) return displayedCards;
+    return [...displayedCards].sort(mode.compare);
+  }, [displayedCards, activeSort, sortCycles]);
+
+  const visibleCards = sortedCards.slice(0, visibleCount);
+
+  function cycleSort(group: SortGroup) {
+    setActiveSort(prev => {
+      if (!prev || prev.group !== group) return { group, step: 0 };
+      const nextStep = prev.step + 1;
+      if (nextStep >= sortCycles[group].length) return null;
+      return { group, step: nextStep };
+    });
+  }
+
+  function sortIndicator(group: SortGroup) {
+    if (!activeSort || activeSort.group !== group) return '';
+    return sortCycles[group][activeSort.step]?.indicator ?? '';
+  }
 
   function addCard(id: string) {
     if (currentDeck.length >= MAX_DECK) return;
@@ -168,6 +199,18 @@ export default function DeckbuilderScreen() {
     setCurrentDeck(next);
   }
 
+  function cycleDeckCount(id: string) {
+    const copies = copyMap[id] || 0;
+    const max = maxCopiesFor(id);
+    if (copies >= max) {
+      setCurrentDeck(currentDeck.filter(cid => cid !== id));
+    } else if (currentDeck.length < MAX_DECK) {
+      setCurrentDeck([...currentDeck, id]);
+    }
+    setFlashRow(id);
+    setTimeout(() => setFlashRow(null), 300);
+  }
+
   function saveDeck() {
     if (currentDeck.length !== MAX_DECK) return;
     const existing = Progression.getDeck();
@@ -180,19 +223,6 @@ export default function DeckbuilderScreen() {
     setTimeout(() => setToast(false), 2000);
   }
 
-  function toggleSort(col: SortColumn) {
-    if (sortColumn === col) {
-      setSortDirection(d => d === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortColumn(col);
-      setSortDirection('asc');
-    }
-  }
-
-  function sortIndicator(col: SortColumn) {
-    if (sortColumn !== col) return '';
-    return sortDirection === 'asc' ? ' \u25B2' : ' \u25BC';
-  }
 
   // Card limit helper
   function maxCopiesFor(cardId: string) {
@@ -236,17 +266,18 @@ export default function DeckbuilderScreen() {
   return (
     <div className={styles.screen}>
       <div className={styles.header}>
-        <button id="btn-db-back" className={`btn-secondary ${styles.backBtn}`} onClick={() => navigateTo('save-point')}>{t('deckbuilder.back')}</button>
-        <div className={styles.title}>{t('deckbuilder.title')}</div>
-        <div className={styles.count}>{t('deckbuilder.cards_count', { current: currentDeck.length, max: MAX_DECK })}</div>
-        <button
-          id="btn-db-save"
-          className="btn-primary"
-          disabled={!deckFull}
-          style={{ opacity: deckFull ? 1 : 0.4, cursor: deckFull ? 'pointer' : 'not-allowed' }}
-          onClick={saveDeck}
-        >{t('deckbuilder.save_btn')}</button>
-        <div className={`${styles.tabs} ml-auto`}>
+        <div className={styles.titleRow}>
+          <button id="btn-db-back" className={`btn-secondary ${styles.backBtn}`} onClick={() => navigateTo('save-point')}>{t('deckbuilder.back')}</button>
+          <div className={styles.title}>{t('deckbuilder.title')}</div>
+          <button
+            id="btn-db-save"
+            className={`btn-primary ${styles.saveBtn}`}
+            disabled={!deckFull}
+            style={{ opacity: deckFull ? 1 : 0.4, cursor: deckFull ? 'pointer' : 'not-allowed' }}
+            onClick={saveDeck}
+          >{t('deckbuilder.save_btn')}</button>
+        </div>
+        <div className={styles.tabRow}>
           <button
             className={`${styles.tabBtn}${activeTab === 'collection' ? ` ${styles.activeTab}` : ''}`}
             onClick={() => setActiveTab('collection')}
@@ -254,7 +285,7 @@ export default function DeckbuilderScreen() {
           <button
             className={`${styles.tabBtn}${activeTab === 'deck' ? ` ${styles.activeTab}` : ''}`}
             onClick={() => setActiveTab('deck')}
-          >{t('deckbuilder.tab_deck')}</button>
+          >{t('deckbuilder.tab_deck')} {currentDeck.length}/{MAX_DECK}</button>
         </div>
       </div>
 
@@ -295,15 +326,10 @@ export default function DeckbuilderScreen() {
             </div>
             <div className={styles.viewToggle}>
               <button
-                className={`${styles.viewBtn}${viewMode === 'large' ? ` ${styles.active}` : ''}`}
+                className={`${styles.viewBtn}${viewMode === 'cards' ? ` ${styles.active}` : ''}`}
                 title={t('deckbuilder.view_large')}
-                onClick={() => setViewMode('large')}
+                onClick={() => setViewMode('cards')}
               >⊞</button>
-              <button
-                className={`${styles.viewBtn}${viewMode === 'small' ? ` ${styles.active}` : ''}`}
-                title={t('deckbuilder.view_small')}
-                onClick={() => setViewMode('small')}
-              >⊟</button>
               <button
                 className={`${styles.viewBtn}${viewMode === 'table' ? ` ${styles.active}` : ''}`}
                 title={t('deckbuilder.view_table')}
@@ -312,9 +338,9 @@ export default function DeckbuilderScreen() {
             </div>
           </div>
 
-          {/* Card grid — Large or Small */}
-          {viewMode !== 'table' && (
-            <div className={`${styles.collectionGrid}${viewMode === 'large' ? ` ${styles.gridLarge}` : ` ${styles.gridSmall}`}`}>
+          {/* Card grid */}
+          {viewMode === 'cards' && (
+            <div className={styles.collectionGrid}>
               {visibleCards.map(card => {
                 const copies = copyMap[card.id] || 0;
                 const atMax  = isAtMax(card.id);
@@ -347,32 +373,20 @@ export default function DeckbuilderScreen() {
               <table className={styles.table}>
                 <thead>
                   <tr>
-                    <th className={styles.sortable} onClick={() => toggleSort('id')}>
+                    <th className={styles.sortable} onClick={() => cycleSort('id')}>
                       {t('deckbuilder.table_nr')}{sortIndicator('id')}
                     </th>
-                    <th className={styles.sortable} onClick={() => toggleSort('rarity')}>
+                    <th className={styles.sortable} onClick={() => cycleSort('rarity')}>
                       {t('deckbuilder.table_rarity')}{sortIndicator('rarity')}
                     </th>
-                    <th className={styles.sortable} onClick={() => toggleSort('name')}>
+                    <th className={styles.sortable} onClick={() => cycleSort('name')}>
                       {t('deckbuilder.table_name')}{sortIndicator('name')}
                     </th>
-                    <th className={styles.sortable} onClick={() => toggleSort('atk')}>
-                      {t('deckbuilder.table_atk')}{sortIndicator('atk')}
+                    <th className={styles.sortable} onClick={() => cycleSort('atkdef')}>
+                      {t('deckbuilder.table_atkdef')}{sortIndicator('atkdef')}
                     </th>
-                    <th className={styles.sortable} onClick={() => toggleSort('def')}>
-                      {t('deckbuilder.table_def')}{sortIndicator('def')}
-                    </th>
-                    <th className={styles.sortable} onClick={() => toggleSort('type')}>
-                      {t('deckbuilder.table_type')}{sortIndicator('type')}
-                    </th>
-                    <th className={styles.sortable} onClick={() => toggleSort('race')}>
-                      {t('deckbuilder.table_race')}{sortIndicator('race')}
-                    </th>
-                    <th className={styles.sortable} onClick={() => toggleSort('inDeck')}>
+                    <th className={styles.sortable} onClick={() => cycleSort('inDeck')}>
                       {t('deckbuilder.table_in_deck')}{sortIndicator('inDeck')}
-                    </th>
-                    <th className={styles.sortable} onClick={() => toggleSort('newest')}>
-                      {t('deckbuilder.table_new')}{sortIndicator('newest')}
                     </th>
                   </tr>
                 </thead>
@@ -382,7 +396,6 @@ export default function DeckbuilderScreen() {
                     const atMax      = isAtMax(card.id);
                     const full       = currentDeck.length >= MAX_DECK;
                     const dimmed     = activeTab === 'collection' && (atMax || full);
-                    const ownedCount = collectionCount[card.id] || 0;
                     const rarMeta    = getRarityById(card.rarity as number);
                     const rarColor   = rarMeta?.color ?? '#aaa';
                     const typeLbl    = card.type === CardType.Monster && card.effect
@@ -393,27 +406,39 @@ export default function DeckbuilderScreen() {
                       ? (card.effect ? '#c8a850' : '#e8e8e8')
                       : (typeMeta?.color ?? '#aaa');
                     const raceLbl    = card.race ? (getRaceById(card.race)?.value ?? '') : '';
+                    const maxCp = maxCopiesFor(card.id);
+                    const isFlashing = flashRow === card.id;
                     return (
                       <tr
                         key={card.id}
-                        className={dimmed ? styles.tableRowDimmed : ''}
+                        className={`${dimmed ? styles.tableRowDimmed : ''}${isFlashing ? ` ${styles.tableRowFlash}` : ''}`}
                         onClick={() => handleCardClick(card)}
                         onDoubleClick={() => handleCardDoubleClick(card)}
                         ref={el => { if (el) attachHover(el, card, null); }}
                       >
-                        <td>{card.id}</td>
+                        <td>
+                          <div>{card.id}</div>
+                          {isNew(card.id) && <span className={styles.newBadge}>NEW</span>}
+                        </td>
                         <td>
                           <span style={{ color: rarColor }}>
                             {rarMeta?.value ?? '\u2014'}
                           </span>
                         </td>
-                        <td style={{ color: typeColor }}>{card.name}</td>
-                        <td>{card.atk !== undefined ? card.atk : '\u2014'}</td>
-                        <td>{card.def !== undefined ? card.def : '\u2014'}</td>
-                        <td style={{ color: typeColor }}>{typeLbl}</td>
-                        <td>{raceLbl}</td>
-                        <td>{copies} / {maxCopiesFor(card.id)}</td>
-                        <td>{isNew(card.id) && <span className={styles.newBadge}>NEW</span>}</td>
+                        <td>
+                          <div style={{ color: typeColor }}>{card.name}</div>
+                          <div className={styles.tableSubtext}>{typeLbl} {raceLbl}</div>
+                        </td>
+                        <td className={styles.tableAtkDef}>
+                          <div><GiCrossedSwords className={styles.statIcon} /> {card.atk ?? '\u2014'}</div>
+                          <div><GiShield className={styles.statIcon} /> {card.def ?? '\u2014'}</div>
+                        </td>
+                        <td
+                          className={`${styles.deckCountCell}${copies >= maxCp && copies > 0 ? ` ${styles.deckCountMax}` : copies > 0 ? ` ${styles.deckCountActive}` : ''}${full && copies === 0 ? ` ${styles.deckCountDimmed}` : ''}`}
+                          onClick={e => { e.stopPropagation(); cycleDeckCount(card.id); }}
+                        >
+                          <strong>{copies}</strong>/{maxCp}
+                        </td>
                       </tr>
                     );
                   })}
