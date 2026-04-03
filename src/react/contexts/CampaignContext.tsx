@@ -55,9 +55,24 @@ export function CampaignProvider({ children }: { children: React.ReactNode }) {
 
   const getOpponentForNode = useCallback((nodeId: string): OpponentConfig | undefined => {
     const node = getNode(nodeId);
-    if (!node || node.type !== 'duel' || node.opponentId === undefined) return undefined;
-    return (OPPONENT_CONFIGS as OpponentConfig[]).find(c => c.id === node.opponentId);
-  }, []);
+    if (!node) {
+      console.warn(`[getOpponentForNode] Node "${nodeId}" not found. CAMPAIGN_DATA has ${CAMPAIGN_DATA.chapters.length} chapters.`);
+      return undefined;
+    }
+    if (node.type !== 'duel') {
+      console.warn(`[getOpponentForNode] Node "${nodeId}" is type "${node.type}", not "duel".`);
+      return undefined;
+    }
+    if (node.opponentId === undefined) {
+      console.warn(`[getOpponentForNode] Node "${nodeId}" has no opponentId.`);
+      return undefined;
+    }
+    const config = (OPPONENT_CONFIGS as OpponentConfig[]).find(c => c.id === node.opponentId);
+    if (!config) {
+      console.warn(`[getOpponentForNode] Opponent config ${node.opponentId} not found. OPPONENT_CONFIGS has ${OPPONENT_CONFIGS.length} entries.`);
+    }
+    return config;
+  }, [campaignData, OPPONENT_CONFIGS.length]);
 
   const refreshCampaignProgress = useCallback(() => {
     setProgress({ ...Progression.getCampaignProgress() });
