@@ -255,7 +255,7 @@ export async function loadTcgFile(
     let name = (hasLocaleFiles && localeData[`card_${tc.id}_name`]) || tc.name || '';
     let description = (hasLocaleFiles && localeData[`card_${tc.id}_desc`]) || tc.description || '';
 
-    // Wenn locale files vorhanden, warnen falls name/description fehlen
+    // If locale files are present, warn if a card has no name or description
     if (hasLocaleFiles && !name && !description) {
       warnings.push(`Card id ${tc.id}: missing name and description`);
     } else if (hasLocaleFiles && !name) {
