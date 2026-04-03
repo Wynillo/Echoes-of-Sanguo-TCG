@@ -204,19 +204,14 @@ export function validateShopJson(data: unknown, knownNodeIds?: Set<string>): str
   const obj = data as Record<string, unknown>;
 
   // Validate packs array (if present)
-  if (obj.packs !== undefined && !Array.isArray(obj.packs)) {
-    warnings.push('shop.json: packs must be an array');
-  }
-
-  // Validate packages array (if present)
-  if (obj.packages !== undefined) {
-    if (!Array.isArray(obj.packages)) {
-      warnings.push('shop.json: packages must be an array');
+  if (obj.packs !== undefined) {
+    if (!Array.isArray(obj.packs)) {
+      warnings.push('shop.json: packs must be an array');
     } else {
       const seenIds = new Set<string>();
-      for (let i = 0; i < obj.packages.length; i++) {
-        const pkg = obj.packages[i] as Record<string, unknown>;
-        const prefix = `shop.json: packages[${i}]`;
+      for (let i = 0; i < obj.packs.length; i++) {
+        const pkg = obj.packs[i] as Record<string, unknown>;
+        const prefix = `shop.json: packs[${i}]`;
 
         if (typeof pkg !== 'object' || pkg === null) {
           warnings.push(`${prefix}: must be an object`);
@@ -227,11 +222,11 @@ export function validateShopJson(data: unknown, knownNodeIds?: Set<string>): str
         if (typeof pkg.id !== 'string' || !pkg.id) {
           warnings.push(`${prefix}: missing or invalid "id"`);
         } else {
-          if (seenIds.has(pkg.id)) warnings.push(`${prefix}: duplicate package id "${pkg.id}"`);
+          if (seenIds.has(pkg.id)) warnings.push(`${prefix}: duplicate pack id "${pkg.id}"`);
           seenIds.add(pkg.id);
         }
-         const hasName = typeof pkg.name === 'string';
-         if (!hasName) warnings.push(`${prefix}: missing "name"`);
+        const hasName = typeof pkg.name === 'string';
+        if (!hasName) warnings.push(`${prefix}: missing "name"`);
         if (typeof pkg.price !== 'number' || pkg.price <= 0) warnings.push(`${prefix}: "price" must be a positive number`);
         if (!Array.isArray(pkg.slots) || !(pkg.slots as unknown[]).length) {
           warnings.push(`${prefix}: "slots" must be a non-empty array`);

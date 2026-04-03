@@ -100,6 +100,17 @@ describe('validateShopJson', () => {
     const warnings = validateShopJson('bad');
     expect(warnings.some(w => w.includes('JSON object'))).toBe(true);
   });
+
+  it('warns on invalid pack entries in packs array', () => {
+    const warnings = validateShopJson({
+      packs: [
+        { price: 0, slots: [] },   // missing id, zero price, empty slots
+      ],
+    });
+    expect(warnings.some(w => w.includes('packs[0]') && w.includes('"id"'))).toBe(true);
+    expect(warnings.some(w => w.includes('packs[0]') && w.includes('"price"'))).toBe(true);
+    expect(warnings.some(w => w.includes('packs[0]') && w.includes('"slots"'))).toBe(true);
+  });
 });
 
 describe('validateCampaignJson', () => {
