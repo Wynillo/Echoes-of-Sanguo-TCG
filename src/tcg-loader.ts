@@ -6,7 +6,7 @@
 // ============================================================
 
 import JSZip from 'jszip';
-import type { TcgCard, TcgCardDefinition, TcgParsedCard, TcgMeta, TcgModJson, TcgOpponentDeck, TcgFusionFormula, TcgLocaleOverrides, TcgShopJson, TcgCampaignJson, TcgGameRules, TcgLoadResult } from './types.js';
+import type { TcgCard, TcgParsedCard, TcgMeta, TcgModJson, TcgOpponentDeck, TcgFusionFormula, TcgLocaleOverrides, TcgShopJson, TcgCampaignJson, TcgGameRules, TcgLoadResult } from './types.js';
 import { validateTcgArchive, validateCampaignJson, validateFusionFormulasJson } from './tcg-validator.js';
 
 // ── Error Classes ───────────────────────────────────────────
