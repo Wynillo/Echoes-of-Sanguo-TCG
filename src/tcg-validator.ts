@@ -380,6 +380,24 @@ export function validateCampaignJson(data: unknown): string[] {
           warnings.push(`campaign.json: node "${n.id}": gauntlet entries must be numbers`);
         }
       }
+
+      // Validate type-specific required fields (warnings only — campaign.json is optional)
+      switch (n.type) {
+        case 'duel':
+          if (!('preDialogue' in n)) warnings.push(`campaign.json: node "${n.id}": duel node missing required field "preDialogue"`);
+          if (!('postDialogue' in n)) warnings.push(`campaign.json: node "${n.id}": duel node missing required field "postDialogue"`);
+          break;
+        case 'story':
+          if (typeof n.scene !== 'object' || n.scene === null) warnings.push(`campaign.json: node "${n.id}": story node missing required field "scene"`);
+          break;
+        case 'shop':
+          if (typeof n.shopId !== 'string' || !n.shopId) warnings.push(`campaign.json: node "${n.id}": shop node missing required field "shopId"`);
+          break;
+        case 'branch':
+          if (typeof n.promptKey !== 'string' || !n.promptKey) warnings.push(`campaign.json: node "${n.id}": branch node missing required field "promptKey"`);
+          if (!Array.isArray(n.options) || (n.options as unknown[]).length === 0) warnings.push(`campaign.json: node "${n.id}": branch node missing required field "options"`);
+          break;
+      }
     }
   }
 
