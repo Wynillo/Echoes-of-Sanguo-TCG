@@ -252,8 +252,8 @@ export async function loadTcgFile(
   const localeData = hasLocaleFiles ? localeOverrides.get(lang) ?? (localeOverrides.size ? localeOverrides.values().next().value! : {}) : {};
 
   for (const tc of cards) {
-    let name = tc.name || '';
-    let description = tc.description || '';
+    let name = (hasLocaleFiles && localeData[`card_${tc.id}_name`]) || tc.name || '';
+    let description = (hasLocaleFiles && localeData[`card_${tc.id}_desc`]) || tc.description || '';
 
     // Wenn locale files vorhanden, warnen falls name/description fehlen
     if (hasLocaleFiles && !name && !description) {
