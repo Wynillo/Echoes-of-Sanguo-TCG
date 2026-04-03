@@ -1,11 +1,12 @@
 // Entry point — loads card data from base.tcg then mounts the app
 import './cards.js';           // empty data stores + helpers
 import './mod-api.js';         // exposes window.EchoesOfSanguoMod (live references to stores)
-import { loadAndApplyTcg, reloadTcgLocale } from './tcg-bridge.js';
+import { reloadTcgLocale } from './tcg-bridge.js';
+import { loadCachedOrBundled } from './tcg-update.js';
 
 const loadingBar = document.getElementById('loading-bar');
 try {
-  await loadAndApplyTcg(import.meta.env.BASE_URL + 'base.tcg', {
+  await loadCachedOrBundled(import.meta.env.BASE_URL + 'base.tcg', {
     onProgress: (pct) => {
       if (loadingBar) (loadingBar as HTMLElement).style.width = pct + '%';
     },
