@@ -3,6 +3,7 @@ import {
   type CardData, type CardFilter,
   type EffectDescriptor, type EffectContext, type EffectSignal, type CardEffectBlock,
   type ValueExpr, type StatTarget, type Owner, type FieldCard,
+  type PureEffectCtx, type ChainEffectCtx,
 } from './types.js';
 
 export function matchesFilter(card: CardData, filter: CardFilter): boolean {
@@ -33,7 +34,7 @@ function oppOf(owner: Owner): Owner {
   return owner === 'player' ? 'opponent' : 'player';
 }
 
-function resolveValue(expr: ValueExpr, ctx: EffectContext): number {
+function resolveValue(expr: ValueExpr, ctx: PureEffectCtx): number {
   if (typeof expr === 'number') return expr;
   if (expr.from === 'attacker.effectiveATK' && ctx.attacker) {
     const raw = ctx.attacker.effectiveATK() * expr.multiply;
@@ -51,7 +52,7 @@ function resolveTarget(target: 'opponent' | 'self', owner: Owner): Owner {
   return oppOf(owner);
 }
 
-function resolveStatTarget(target: StatTarget, ctx: EffectContext): FieldCard | null {
+function resolveStatTarget(target: StatTarget, ctx: PureEffectCtx): FieldCard | null {
   if (target === 'attacker')    return ctx.attacker ?? null;
   if (target === 'defender')    return ctx.defender ?? null;
   if (target === 'summonedFC')  return ctx.summonedFC ?? null;
@@ -67,14 +68,12 @@ function shuffleArray<T>(arr: T[]): void {
   }
 }
 
-function _triggerBuffVFX(fc: FieldCard, ctx: EffectContext): void {
-  const ui = ctx.engine.ui;
-  if (!ui?.playVFX) return;
-  const st = ctx.engine.getState();
+function _triggerBuffVFX(fc: FieldCard, ctx: PureEffectCtx): void {
+  if (!ctx.vfx) return;
   for (const side of ['player', 'opponent'] as Owner[]) {
-    const zone = st[side].field.monsters.indexOf(fc);
+    const zone = ctx.state[side].field.monsters.indexOf(fc);
     if (zone !== -1) {
-      ui.playVFX('buff', side, zone);
+      ctx.vfx('buff', side, zone);
       return;
     }
   }
@@ -98,61 +97,58 @@ function findMonsterByATK(
 }
 
 export type EffectImpl = (desc: EffectDescriptor, ctx: EffectContext) => EffectSignal;
-// Internal type — allows handlers to declare specific desc subtypes while still
-// being assignable to the Record annotation (ctx stays typed).
-type InternalImpl = (desc: any, ctx: EffectContext) => EffectSignal;
+// Internal type — all handlers receive ChainEffectCtx from the dispatcher at runtime.
+// A-handlers declare ctx: PureEffectCtx (supertype → valid via contravariance).
+// B/A+B handlers declare ctx: ChainEffectCtx (same type → valid directly).
+type InternalImpl = (desc: any, ctx: ChainEffectCtx) => EffectSignal | Promise<EffectSignal>;
 
 const IMPL: Record<string, InternalImpl> = {
 
-  dealDamage(desc: { target: 'opponent' | 'self'; value: ValueExpr }, ctx) {
+  dealDamage(desc: { target: 'opponent' | 'self'; value: ValueExpr }, ctx: PureEffectCtx) {
     const amount = resolveValue(desc.value, ctx);
     const target = resolveTarget(desc.target, ctx.owner);
-    ctx.engine.ui?.playVFX?.('damage', target);
-    ctx.engine.dealDamage(target, amount);
+    ctx.vfx?.('damage', target);
+    ctx.damage(target, amount);
     return {};
   },
 
-  gainLP(desc: { target: 'opponent' | 'self'; value: number | ValueExpr }, ctx) {
+  gainLP(desc: { target: 'opponent' | 'self'; value: number | ValueExpr }, ctx: PureEffectCtx) {
     const amount = resolveValue(desc.value as ValueExpr, ctx);
     const target = resolveTarget(desc.target, ctx.owner);
-    ctx.engine.gainLP(target, amount);
+    ctx.heal(target, amount);
     return {};
   },
 
-  draw(desc: { target: 'self' | 'opponent'; count: number }, ctx) {
-    const target = resolveTarget(desc.target, ctx.owner);
-    ctx.engine.drawCard(target, desc.count);
+  draw(desc: { target: 'self' | 'opponent'; count: number }, ctx: PureEffectCtx) {
+    ctx.draw(resolveTarget(desc.target, ctx.owner), desc.count);
     return {};
   },
 
-  buffField(desc: { value: number; filter?: CardFilter }, ctx) {
-    const st = ctx.engine.getState();
-    const monsters = filterFieldMonsters(st[ctx.owner].field.monsters, desc.filter);
+  buffField(desc: { value: number; filter?: CardFilter }, ctx: PureEffectCtx) {
+    const monsters = filterFieldMonsters(ctx.state[ctx.owner].field.monsters, desc.filter);
     for (const fm of monsters) {
       fm.permATKBonus = (fm.permATKBonus || 0) + desc.value;
       fm.permDEFBonus = (fm.permDEFBonus || 0) + desc.value;
-      const zone = st[ctx.owner].field.monsters.indexOf(fm);
-      if (zone !== -1) ctx.engine.ui?.playVFX?.('buff', ctx.owner, zone);
+      const zone = ctx.state[ctx.owner].field.monsters.indexOf(fm);
+      if (zone !== -1) ctx.vfx?.('buff', ctx.owner, zone);
     }
     return {};
   },
 
-  tempBuffField(desc: { value: number; filter?: CardFilter }, ctx) {
-    const st = ctx.engine.getState();
-    const monsters = filterFieldMonsters(st[ctx.owner].field.monsters, desc.filter);
+  tempBuffField(desc: { value: number; filter?: CardFilter }, ctx: PureEffectCtx) {
+    const monsters = filterFieldMonsters(ctx.state[ctx.owner].field.monsters, desc.filter);
     for (const fm of monsters) {
       fm.tempATKBonus = (fm.tempATKBonus || 0) + desc.value;
       fm.tempDEFBonus = (fm.tempDEFBonus || 0) + desc.value;
-      const zone = st[ctx.owner].field.monsters.indexOf(fm);
-      if (zone !== -1) ctx.engine.ui?.playVFX?.('buff', ctx.owner, zone);
+      const zone = ctx.state[ctx.owner].field.monsters.indexOf(fm);
+      if (zone !== -1) ctx.vfx?.('buff', ctx.owner, zone);
     }
     return {};
   },
 
-  debuffField(desc: { atkD: number; defD: number }, ctx) {
+  debuffField(desc: { atkD: number; defD: number }, ctx: PureEffectCtx) {
     const opp = oppOf(ctx.owner);
-    const st = ctx.engine.getState();
-    st[opp].field.monsters.forEach(fm => {
+    ctx.state[opp].field.monsters.forEach(fm => {
       if (!fm) return;
       if (desc.atkD) fm.permATKBonus = (fm.permATKBonus || 0) - desc.atkD;
       if (desc.defD) fm.permDEFBonus = (fm.permDEFBonus || 0) - desc.defD;
@@ -160,11 +156,10 @@ const IMPL: Record<string, InternalImpl> = {
     return {};
   },
 
-  tempDebuffField(desc: { atkD: number; defD?: number }, ctx) {
+  tempDebuffField(desc: { atkD: number; defD?: number }, ctx: PureEffectCtx) {
     const opp = oppOf(ctx.owner);
-    const st = ctx.engine.getState();
     const defD = desc.defD ?? desc.atkD;
-    st[opp].field.monsters.forEach(fm => {
+    ctx.state[opp].field.monsters.forEach(fm => {
       if (!fm) return;
       if (desc.atkD) fm.tempATKBonus = (fm.tempATKBonus || 0) - desc.atkD;
       if (defD) fm.tempDEFBonus = (fm.tempDEFBonus || 0) - defD;
@@ -172,59 +167,55 @@ const IMPL: Record<string, InternalImpl> = {
     return {};
   },
 
-  bounceStrongestOpp(_desc: unknown, ctx) {
+  bounceStrongestOpp(_desc: unknown, ctx: PureEffectCtx) {
     const opp = oppOf(ctx.owner);
-    const st = ctx.engine.getState();
-    const monsters = st[opp].field.monsters;
+    const monsters = ctx.state[opp].field.monsters;
     const strongest = findMonsterByATK(monsters, 'strongest', { excludeUntargetable: true });
     if (strongest !== null && monsters[strongest]) {
       const fc = monsters[strongest];
-      st[opp].hand.push(fc.card);
+      ctx.state[opp].hand.push(fc.card);
       monsters[strongest] = null;
-      ctx.engine._removeEquipmentForMonster(opp, strongest);
-      ctx.engine.addLog(`${fc.card.name} was bounced back to hand!`);
+      ctx.removeEquipment(opp, strongest);
+      ctx.log(`${fc.card.name} was bounced back to hand!`);
     }
     return {};
   },
 
-  bounceAttacker(_desc: unknown, ctx) {
+  bounceAttacker(_desc: unknown, ctx: PureEffectCtx) {
     if (!ctx.attacker) return {};
     const opp = oppOf(ctx.owner);
-    const st = ctx.engine.getState();
-    st[opp].hand.push(ctx.attacker.card);
-    const monsters = st[opp].field.monsters;
+    ctx.state[opp].hand.push(ctx.attacker.card);
+    const monsters = ctx.state[opp].field.monsters;
     const i = monsters.indexOf(ctx.attacker);
-    if (i !== -1) { monsters[i] = null; ctx.engine._removeEquipmentForMonster(opp, i); }
+    if (i !== -1) { monsters[i] = null; ctx.removeEquipment(opp, i); }
     return {};
   },
 
-  bounceAllOppMonsters(_desc: unknown, ctx) {
+  bounceAllOppMonsters(_desc: unknown, ctx: PureEffectCtx) {
     const opp = oppOf(ctx.owner);
-    const st = ctx.engine.getState();
-    const monsters = st[opp].field.monsters;
+    const monsters = ctx.state[opp].field.monsters;
     for (let i = 0; i < monsters.length; i++) {
       if (monsters[i]) {
-        st[opp].hand.push(monsters[i]!.card);
+        ctx.state[opp].hand.push(monsters[i]!.card);
         monsters[i] = null;
-        ctx.engine._removeEquipmentForMonster(opp, i);
+        ctx.removeEquipment(opp, i);
       }
     }
     return {};
   },
 
-  searchDeckToHand(desc: { filter: CardFilter }, ctx) {
-    const st = ctx.engine.getState();
-    const deck = st[ctx.owner].deck;
+  searchDeckToHand(desc: { filter: CardFilter }, ctx: PureEffectCtx) {
+    const deck = ctx.state[ctx.owner].deck;
     const idx = deck.findIndex(c => matchesFilter(c, desc.filter));
     if (idx !== -1) {
       const [c] = deck.splice(idx, 1);
-      st[ctx.owner].hand.push(c);
-      ctx.engine.addLog(`${ctx.owner === 'player' ? 'You' : 'Opponent'}: ${c.name} added to hand by effect.`);
+      ctx.state[ctx.owner].hand.push(c);
+      ctx.log(`${ctx.owner === 'player' ? 'You' : 'Opponent'}: ${c.name} added to hand by effect.`);
     }
     return {};
   },
 
-  tempAtkBonus(desc: { target: StatTarget; value: number }, ctx) {
+  tempAtkBonus(desc: { target: StatTarget; value: number }, ctx: PureEffectCtx) {
     const fc = resolveStatTarget(desc.target, ctx);
     if (fc) {
       fc.tempATKBonus = (fc.tempATKBonus || 0) + desc.value;
@@ -234,7 +225,7 @@ const IMPL: Record<string, InternalImpl> = {
     return {};
   },
 
-  permAtkBonus(desc: { target: StatTarget; value: number; filter?: CardFilter }, ctx) {
+  permAtkBonus(desc: { target: StatTarget; value: number; filter?: CardFilter }, ctx: PureEffectCtx) {
     const fc = resolveStatTarget(desc.target, ctx);
     if (!fc) return {};
     if (desc.filter && !matchesFilter(fc.card, desc.filter)) return {};
@@ -244,7 +235,7 @@ const IMPL: Record<string, InternalImpl> = {
     return {};
   },
 
-  tempDefBonus(desc: { target: StatTarget; value: number }, ctx) {
+  tempDefBonus(desc: { target: StatTarget; value: number }, ctx: PureEffectCtx) {
     const fc = resolveStatTarget(desc.target, ctx);
     if (fc) {
       fc.tempDEFBonus = (fc.tempDEFBonus || 0) + desc.value;
@@ -253,7 +244,7 @@ const IMPL: Record<string, InternalImpl> = {
     return {};
   },
 
-  permDefBonus(desc: { target: StatTarget; value: number }, ctx) {
+  permDefBonus(desc: { target: StatTarget; value: number }, ctx: PureEffectCtx) {
     const fc = resolveStatTarget(desc.target, ctx);
     if (fc) {
       fc.permDEFBonus = (fc.permDEFBonus || 0) + desc.value;
@@ -262,182 +253,165 @@ const IMPL: Record<string, InternalImpl> = {
     return {};
   },
 
-  reviveFromGrave(_desc: unknown, ctx) {
-    if (ctx.targetCard) ctx.engine.specialSummonFromGrave(ctx.owner, ctx.targetCard);
+  async reviveFromGrave(_desc: unknown, ctx: ChainEffectCtx) {
+    if (ctx.targetCard) await ctx.summonFromGrave(ctx.owner, ctx.targetCard);
     return {};
   },
 
-  cancelAttack() {
+  cancelAttack(_desc: unknown, _ctx: PureEffectCtx) {
     return { cancelAttack: true };
   },
 
-  cancelEffect() {
+  cancelEffect(_desc: unknown, _ctx: PureEffectCtx) {
     return { cancelEffect: true };
   },
 
-  reflectBattleDamage() {
+  reflectBattleDamage(_desc: unknown, _ctx: PureEffectCtx) {
     return { cancelAttack: true, reflectDamage: true };
   },
 
-  stealMonster(_desc: unknown, ctx) {
+  stealMonster(_desc: unknown, ctx: PureEffectCtx) {
     const opp = oppOf(ctx.owner);
-    const st = ctx.engine.getState();
-    const oppMonsters = st[opp].field.monsters;
+    const oppMonsters = ctx.state[opp].field.monsters;
     const idx = findMonsterByATK(oppMonsters, 'strongest', { excludeUntargetable: true });
     if (idx === null || !oppMonsters[idx]) return {};
-    const ownMonsters = st[ctx.owner].field.monsters;
+    const ownMonsters = ctx.state[ctx.owner].field.monsters;
     const freeZone = ownMonsters.findIndex(z => z === null);
     if (freeZone === -1) return {};
     const fc = oppMonsters[idx]!;
     oppMonsters[idx] = null;
-    ctx.engine._removeEquipmentForMonster(opp, idx);
+    ctx.removeEquipment(opp, idx);
     fc.originalOwner = opp;
     ownMonsters[freeZone] = fc;
     fc.hasAttacked = false;
-    ctx.engine.addLog(`${fc.card.name} control changed!`);
+    ctx.log(`${fc.card.name} control changed!`);
     return {};
   },
 
-  skipOppDraw(_desc: unknown, ctx) {
+  skipOppDraw(_desc: unknown, ctx: PureEffectCtx) {
     const opp = oppOf(ctx.owner);
-    ctx.engine.getState().skipNextDraw = opp;
-    ctx.engine.addLog(`${opp === 'player' ? 'You' : 'Opponent'} will skip the next Draw Phase!`);
+    ctx.state.skipNextDraw = opp;
+    ctx.log(`${opp === 'player' ? 'You' : 'Opponent'} will skip the next Draw Phase!`);
     return {};
   },
 
-  destroyAndDamageBoth(desc: { side: 'opponent' | 'self' }, ctx) {
+  destroyAndDamageBoth(desc: { side: 'opponent' | 'self' }, ctx: PureEffectCtx) {
     const targetOwner = desc.side === 'opponent' ? oppOf(ctx.owner) : ctx.owner;
-    const st = ctx.engine.getState();
-    const monsters = st[targetOwner].field.monsters;
+    const monsters = ctx.state[targetOwner].field.monsters;
     const idx = findMonsterByATK(monsters, 'strongest', {});
     if (idx === null || !monsters[idx]) return {};
     const fc = monsters[idx]!;
     const atk = fc.effectiveATK();
-    ctx.engine.addLog(`${fc.card.name} is destroyed! Both players take ${atk} damage!`);
-    st[targetOwner].graveyard.push(fc.card);
-    st[targetOwner].field.monsters[idx] = null;
-    ctx.engine._removeEquipmentForMonster(targetOwner, idx);
-    ctx.engine.dealDamage('player', atk);
-    ctx.engine.dealDamage('opponent', atk);
+    ctx.log(`${fc.card.name} is destroyed! Both players take ${atk} damage!`);
+    ctx.state[targetOwner].graveyard.push(fc.card);
+    ctx.state[targetOwner].field.monsters[idx] = null;
+    ctx.removeEquipment(targetOwner, idx);
+    ctx.damage('player', atk);
+    ctx.damage('opponent', atk);
     return {};
   },
 
-  preventBattleDamage(_desc: unknown, ctx) {
-    ctx.engine.getState()[ctx.owner].battleProtection = true;
-    ctx.engine.addLog('Battle damage and destruction prevented this turn!');
+  preventBattleDamage(_desc: unknown, ctx: PureEffectCtx) {
+    ctx.state[ctx.owner].battleProtection = true;
+    ctx.log('Battle damage and destruction prevented this turn!');
     return { cancelAttack: true };
   },
 
-  passive_negateTraps(_desc: unknown, ctx) {
-    const st = ctx.engine.getState();
-    if (!st[ctx.owner].fieldFlags) st[ctx.owner].fieldFlags = {};
-    st[ctx.owner].fieldFlags!.negateTraps = true;
-    ctx.engine.addLog('All Trap effects are negated!');
+  passive_negateTraps(_desc: unknown, ctx: PureEffectCtx) {
+    if (!ctx.state[ctx.owner].fieldFlags) ctx.state[ctx.owner].fieldFlags = {};
+    ctx.state[ctx.owner].fieldFlags!.negateTraps = true;
+    ctx.log('All Trap effects are negated!');
     return {};
   },
 
-  passive_negateSpells(_desc: unknown, ctx) {
-    const st = ctx.engine.getState();
-    if (!st[ctx.owner].fieldFlags) st[ctx.owner].fieldFlags = {};
-    st[ctx.owner].fieldFlags!.negateSpells = true;
-    ctx.engine.addLog('All Spell effects are negated!');
+  passive_negateSpells(_desc: unknown, ctx: PureEffectCtx) {
+    if (!ctx.state[ctx.owner].fieldFlags) ctx.state[ctx.owner].fieldFlags = {};
+    ctx.state[ctx.owner].fieldFlags!.negateSpells = true;
+    ctx.log('All Spell effects are negated!');
     return {};
   },
 
-  passive_negateMonsterEffects(_desc: unknown, ctx) {
-    const st = ctx.engine.getState();
-    if (!st[ctx.owner].fieldFlags) st[ctx.owner].fieldFlags = {};
-    st[ctx.owner].fieldFlags!.negateMonsterEffects = true;
-    ctx.engine.addLog('All monster effects are negated!');
+  passive_negateMonsterEffects(_desc: unknown, ctx: PureEffectCtx) {
+    if (!ctx.state[ctx.owner].fieldFlags) ctx.state[ctx.owner].fieldFlags = {};
+    ctx.state[ctx.owner].fieldFlags!.negateMonsterEffects = true;
+    ctx.log('All monster effects are negated!');
     return {};
   },
 
-  stealMonsterTemp(_desc: unknown, ctx) {
+  stealMonsterTemp(_desc: unknown, ctx: PureEffectCtx) {
     const opp = oppOf(ctx.owner);
-    const st = ctx.engine.getState();
-    const oppMonsters = st[opp].field.monsters;
+    const oppMonsters = ctx.state[opp].field.monsters;
     const idx = findMonsterByATK(oppMonsters, 'strongest', { excludeUntargetable: true });
     if (idx === null || !oppMonsters[idx]) return {};
-    const ownMonsters = st[ctx.owner].field.monsters;
+    const ownMonsters = ctx.state[ctx.owner].field.monsters;
     const freeZone = ownMonsters.findIndex(z => z === null);
     if (freeZone === -1) return {};
     const fc = oppMonsters[idx]!;
     oppMonsters[idx] = null;
-    ctx.engine._removeEquipmentForMonster(opp, idx);
+    ctx.removeEquipment(opp, idx);
     fc.originalOwner = opp;
     fc.hasAttacked = false;
     ownMonsters[freeZone] = fc;
-    ctx.engine.addLog(`${fc.card.name} is temporarily under your control!`);
+    ctx.log(`${fc.card.name} is temporarily under your control!`);
     return {};
   },
 
-  reviveFromEitherGrave(_desc: unknown, ctx) {
-    const st = ctx.engine.getState();
-    const ownGY = st[ctx.owner].graveyard;
-    const oppGY = st[oppOf(ctx.owner)].graveyard;
-    let bestIdx = -1;
+  async reviveFromEitherGrave(_desc: unknown, ctx: ChainEffectCtx) {
+    const ownGY = ctx.state[ctx.owner].graveyard;
+    const oppGY = ctx.state[oppOf(ctx.owner)].graveyard;
+    let bestCard: CardData | null = null;
     let bestAtk = -1;
     let fromOwner: Owner = ctx.owner;
-    for (let i = 0; i < ownGY.length; i++) {
-      if (ownGY[i].type === CardType.Monster || ownGY[i].type === CardType.Fusion) {
-        if ((ownGY[i].atk ?? 0) > bestAtk) { bestAtk = ownGY[i].atk ?? 0; bestIdx = i; fromOwner = ctx.owner; }
+    for (const [side, gy] of [[ctx.owner, ownGY], [oppOf(ctx.owner), oppGY]] as [Owner, CardData[]][]) {
+      for (const card of gy) {
+        if ((card.type === CardType.Monster || card.type === CardType.Fusion) && (card.atk ?? 0) > bestAtk) {
+          bestAtk = card.atk ?? 0; bestCard = card; fromOwner = side;
+        }
       }
     }
-    for (let i = 0; i < oppGY.length; i++) {
-      if (oppGY[i].type === CardType.Monster || oppGY[i].type === CardType.Fusion) {
-        if ((oppGY[i].atk ?? 0) > bestAtk) { bestAtk = oppGY[i].atk ?? 0; bestIdx = i; fromOwner = oppOf(ctx.owner); }
-      }
-    }
-    if (bestIdx >= 0) {
-      const gy = st[fromOwner].graveyard;
-      const [card] = gy.splice(bestIdx, 1);
-      ctx.engine.specialSummon(ctx.owner, card);
-    }
+    if (bestCard) await ctx.summonFromGrave(ctx.owner, bestCard, fromOwner);
     return {};
   },
 
-  drawThenDiscard(desc: { drawCount: number; discardCount: number }, ctx) {
-    ctx.engine.drawCard(ctx.owner, desc.drawCount);
-    const st = ctx.engine.getState();
-    const hand = st[ctx.owner].hand;
+  drawThenDiscard(desc: { drawCount: number; discardCount: number }, ctx: PureEffectCtx) {
+    ctx.draw(ctx.owner, desc.drawCount);
+    const hand = ctx.state[ctx.owner].hand;
     const toDiscard = Math.min(desc.discardCount, hand.length);
     for (let i = 0; i < toDiscard; i++) {
       const idx = Math.floor(Math.random() * hand.length);
       const [c] = hand.splice(idx, 1);
-      st[ctx.owner].graveyard.push(c);
+      ctx.state[ctx.owner].graveyard.push(c);
     }
-    ctx.engine.addLog(`Drew ${desc.drawCount}, discarded ${toDiscard}.`);
+    ctx.log(`Drew ${desc.drawCount}, discarded ${toDiscard}.`);
     return {};
   },
 
-  bounceOppHandToDeck(desc: { count: number }, ctx) {
+  bounceOppHandToDeck(desc: { count: number }, ctx: PureEffectCtx) {
     const opp = oppOf(ctx.owner);
-    const st = ctx.engine.getState();
-    const hand = st[opp].hand;
+    const hand = ctx.state[opp].hand;
     const toReturn = Math.min(desc.count, hand.length);
     for (let i = 0; i < toReturn; i++) {
       const idx = Math.floor(Math.random() * hand.length);
       const [c] = hand.splice(idx, 1);
-      st[opp].deck.push(c);
+      ctx.state[opp].deck.push(c);
     }
-    if (toReturn > 0) ctx.engine.addLog(`${toReturn} card(s) shuffled back into opponent's deck.`);
+    if (toReturn > 0) ctx.log(`${toReturn} card(s) shuffled back into opponent's deck.`);
     return {};
   },
 
-  tributeSelf(_desc: unknown, _ctx) {
+  tributeSelf(_desc: unknown, _ctx: PureEffectCtx) {
     return {};
   },
 
-  preventAttacks(desc: { turns: number }, ctx) {
+  preventAttacks(desc: { turns: number }, ctx: PureEffectCtx) {
     const opp = oppOf(ctx.owner);
-    const st = ctx.engine.getState();
-    if (!st[opp].turnCounters) st[opp].turnCounters = [];
-    st[opp].turnCounters!.push({ turnsRemaining: desc.turns, effect: 'preventAttacks' });
-    ctx.engine.addLog(`Opponent cannot attack for ${desc.turns} turns!`);
+    if (!ctx.state[opp].turnCounters) ctx.state[opp].turnCounters = [];
+    ctx.state[opp].turnCounters!.push({ turnsRemaining: desc.turns, effect: 'preventAttacks' });
+    ctx.log(`Opponent cannot attack for ${desc.turns} turns!`);
     return {};
   },
 
-  createTokens(desc: { tokenId: string; count: number; position: string }, ctx) {
+  async createTokens(desc: { tokenId: string; count: number; position: string }, ctx: ChainEffectCtx) {
     const pos = (desc.position ?? 'def') as 'atk' | 'def';
     for (let i = 0; i < desc.count; i++) {
       const tokenCard: CardData = {
@@ -448,17 +422,15 @@ const IMPL: Record<string, InternalImpl> = {
         def: 0,
         description: 'A token monster.',
       };
-      void ctx.engine.specialSummon(ctx.owner, tokenCard, undefined, pos);
+      await ctx.summon(ctx.owner, tokenCard, undefined, pos);
     }
-    ctx.engine.addLog(`${desc.count} token(s) summoned!`);
+    ctx.log(`${desc.count} token(s) summoned!`);
     return {};
   },
 
-  gameReset(_desc: unknown, ctx) {
-    const st = ctx.engine.getState();
+  gameReset(_desc: unknown, ctx: PureEffectCtx) {
     for (const side of ['player', 'opponent'] as Owner[]) {
-      const ps = st[side];
-      // Collect all cards from hand, field, and graveyard
+      const ps = ctx.state[side];
       const allCards: CardData[] = [...ps.hand, ...ps.graveyard];
       for (const fc of ps.field.monsters) {
         if (fc) allCards.push(fc.card);
@@ -467,338 +439,308 @@ const IMPL: Record<string, InternalImpl> = {
         if (fst) allCards.push(fst.card);
       }
       if (ps.field.fieldSpell) allCards.push(ps.field.fieldSpell.card);
-      // Clear everything
       ps.hand.length = 0;
       ps.graveyard.length = 0;
       ps.field.monsters.fill(null);
       ps.field.spellTraps.fill(null);
       ps.field.fieldSpell = null;
-      // Shuffle all back into deck
       ps.deck.push(...allCards);
       for (let i = ps.deck.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [ps.deck[i], ps.deck[j]] = [ps.deck[j], ps.deck[i]];
       }
-      // Draw 5
-      ctx.engine.drawCard(side, 5);
+      ctx.draw(side, 5);
     }
-    ctx.engine.addLog('All cards shuffled back! Both players draw 5.');
+    ctx.log('All cards shuffled back! Both players draw 5.');
     return {};
   },
 
-  excavateAndSummon(desc: { count: number; maxLevel: number }, ctx) {
-    const st = ctx.engine.getState();
+  async excavateAndSummon(desc: { count: number; maxLevel: number }, ctx: ChainEffectCtx) {
     for (const side of ['player', 'opponent'] as Owner[]) {
-      const ps = st[side];
+      const ps = ctx.state[side];
       const excavated: CardData[] = [];
       for (let i = 0; i < desc.count && ps.deck.length > 0; i++) {
-        excavated.push(ps.deck.shift()!);
+        excavated.push(ctx.removeFromDeck(side, 0));
       }
       for (const card of excavated) {
         if ((card.type === CardType.Monster || card.type === CardType.Fusion) && (card.level ?? 99) <= desc.maxLevel) {
-          ctx.engine.specialSummon(side, card, undefined, 'def', true);
+          await ctx.summon(side, card, undefined, 'def', true);
         } else {
           ps.hand.push(card);
         }
       }
     }
-    ctx.engine.addLog(`Top ${desc.count} cards excavated! Monsters summoned, rest added to hand.`);
+    ctx.log(`Top ${desc.count} cards excavated! Monsters summoned, rest added to hand.`);
     return {};
   },
 
-  discardEntireHand(desc: { target: 'self' | 'opponent' | 'both' }, ctx) {
-    const state = ctx.engine.getState();
+  discardEntireHand(desc: { target: 'self' | 'opponent' | 'both' }, ctx: PureEffectCtx) {
     const discard = (owner: Owner) => {
-      const st = state[owner];
-      while (st.hand.length > 0) {
-        st.graveyard.push(st.hand.pop()!);
+      const ps = ctx.state[owner];
+      while (ps.hand.length > 0) {
+        ps.graveyard.push(ps.hand.pop()!);
       }
-      ctx.engine.addLog(`${owner === 'player' ? 'You' : 'Opponent'} discarded entire hand.`);
+      ctx.log(`${owner === 'player' ? 'You' : 'Opponent'} discarded entire hand.`);
     };
     if (desc.target === 'self' || desc.target === 'both') discard(ctx.owner);
     if (desc.target === 'opponent' || desc.target === 'both') discard(oppOf(ctx.owner));
     return {};
   },
 
-  destroyAttacker() {
+  destroyAttacker(_desc: unknown, _ctx: PureEffectCtx) {
     return { cancelAttack: true, destroyAttacker: true };
   },
 
-  destroySummonedIf(desc: { minAtk: number }, ctx) {
+  destroySummonedIf(desc: { minAtk: number }, ctx: PureEffectCtx) {
     if (ctx.summonedFC && ctx.summonedFC.card.atk !== undefined && ctx.summonedFC.card.atk >= desc.minAtk) {
-      ctx.engine.addLog(`Trap! ${ctx.summonedFC.card.name} is destroyed!`);
+      ctx.log(`Trap! ${ctx.summonedFC.card.name} is destroyed!`);
       return { destroySummoned: true };
     }
     return {};
   },
 
-  destroyAllOpp(_desc: unknown, ctx) {
+  destroyAllOpp(_desc: unknown, ctx: PureEffectCtx) {
     const opp = oppOf(ctx.owner);
-    const st = ctx.engine.getState();
-    const monsters = st[opp].field.monsters;
+    const monsters = ctx.state[opp].field.monsters;
     for (let i = 0; i < monsters.length; i++) {
       if (monsters[i]) {
-        st[opp].graveyard.push(monsters[i]!.card);
+        ctx.state[opp].graveyard.push(monsters[i]!.card);
         monsters[i] = null;
-        ctx.engine._removeEquipmentForMonster(opp, i);
+        ctx.removeEquipment(opp, i);
       }
     }
-    ctx.engine.addLog('All opponent monsters destroyed!');
+    ctx.log('All opponent monsters destroyed!');
     return {};
   },
 
-  destroyAll(_desc: unknown, ctx) {
-    const st = ctx.engine.getState();
+  destroyAll(_desc: unknown, ctx: PureEffectCtx) {
     for (const side of ['player', 'opponent'] as Owner[]) {
-      const monsters = st[side].field.monsters;
+      const monsters = ctx.state[side].field.monsters;
       for (let i = 0; i < monsters.length; i++) {
         if (monsters[i]) {
-          st[side].graveyard.push(monsters[i]!.card);
+          ctx.state[side].graveyard.push(monsters[i]!.card);
           monsters[i] = null;
-          ctx.engine._removeEquipmentForMonster(side, i);
+          ctx.removeEquipment(side, i);
         }
       }
     }
-    ctx.engine.addLog('All monsters on both sides destroyed!');
+    ctx.log('All monsters on both sides destroyed!');
     return {};
   },
 
-  destroyWeakestOpp(_desc: unknown, ctx) {
+  destroyWeakestOpp(_desc: unknown, ctx: PureEffectCtx) {
     const opp = oppOf(ctx.owner);
-    const st = ctx.engine.getState();
-    const monsters = st[opp].field.monsters;
+    const monsters = ctx.state[opp].field.monsters;
     const weakestIdx = findMonsterByATK(monsters, 'weakest');
     if (weakestIdx !== null && monsters[weakestIdx]) {
       const fc = monsters[weakestIdx];
-      st[opp].graveyard.push(fc.card);
+      ctx.state[opp].graveyard.push(fc.card);
       monsters[weakestIdx] = null;
-      ctx.engine._removeEquipmentForMonster(opp, weakestIdx);
-      ctx.engine.addLog(`${fc.card.name} (weakest) destroyed!`);
+      ctx.removeEquipment(opp, weakestIdx);
+      ctx.log(`${fc.card.name} (weakest) destroyed!`);
     }
     return {};
   },
 
-  destroyStrongestOpp(_desc: unknown, ctx) {
+  destroyStrongestOpp(_desc: unknown, ctx: PureEffectCtx) {
     const opp = oppOf(ctx.owner);
-    const st = ctx.engine.getState();
-    const monsters = st[opp].field.monsters;
+    const monsters = ctx.state[opp].field.monsters;
     const strongestIdx = findMonsterByATK(monsters, 'strongest');
     if (strongestIdx !== null && monsters[strongestIdx]) {
       const fc = monsters[strongestIdx];
-      st[opp].graveyard.push(fc.card);
+      ctx.state[opp].graveyard.push(fc.card);
       monsters[strongestIdx] = null;
-      ctx.engine._removeEquipmentForMonster(opp, strongestIdx);
-      ctx.engine.addLog(`${fc.card.name} (strongest) destroyed!`);
+      ctx.removeEquipment(opp, strongestIdx);
+      ctx.log(`${fc.card.name} (strongest) destroyed!`);
     }
     return {};
   },
 
-  sendTopCardsToGrave(desc: { count: number }, ctx) {
-    const st = ctx.engine.getState();
-    const deck = st[ctx.owner].deck;
+  sendTopCardsToGrave(desc: { count: number }, ctx: PureEffectCtx) {
+    const deck = ctx.state[ctx.owner].deck;
     const count = Math.min(desc.count, deck.length);
     const cards = deck.splice(0, count);
-    st[ctx.owner].graveyard.push(...cards);
-    ctx.engine.addLog(`${count} card(s) sent from deck to graveyard.`);
+    ctx.state[ctx.owner].graveyard.push(...cards);
+    ctx.log(`${count} card(s) sent from deck to graveyard.`);
     return {};
   },
 
-  sendTopCardsToGraveOpp(desc: { count: number }, ctx) {
+  sendTopCardsToGraveOpp(desc: { count: number }, ctx: PureEffectCtx) {
     const opp = oppOf(ctx.owner);
-    const st = ctx.engine.getState();
-    const deck = st[opp].deck;
+    const deck = ctx.state[opp].deck;
     const count = Math.min(desc.count, deck.length);
     const cards = deck.splice(0, count);
-    st[opp].graveyard.push(...cards);
-    ctx.engine.addLog(`${count} card(s) from opponent's deck sent to graveyard.`);
+    ctx.state[opp].graveyard.push(...cards);
+    ctx.log(`${count} card(s) from opponent's deck sent to graveyard.`);
     return {};
   },
 
-  salvageFromGrave(desc: { filter: CardFilter }, ctx) {
-    const st = ctx.engine.getState();
-    const grave = st[ctx.owner].graveyard;
+  salvageFromGrave(desc: { filter: CardFilter }, ctx: PureEffectCtx) {
+    const grave = ctx.state[ctx.owner].graveyard;
     const idx = grave.findIndex(c => matchesFilter(c, desc.filter));
     if (idx !== -1) {
       const [c] = grave.splice(idx, 1);
-      st[ctx.owner].hand.push(c);
-      ctx.engine.addLog(`${c.name} salvaged from graveyard to hand.`);
+      ctx.state[ctx.owner].hand.push(c);
+      ctx.log(`${c.name} salvaged from graveyard to hand.`);
     }
     return {};
   },
 
-  recycleFromGraveToDeck(desc: { filter: CardFilter }, ctx) {
-    const st = ctx.engine.getState();
-    const grave = st[ctx.owner].graveyard;
+  recycleFromGraveToDeck(desc: { filter: CardFilter }, ctx: PureEffectCtx) {
+    const grave = ctx.state[ctx.owner].graveyard;
     const idx = grave.findIndex(c => matchesFilter(c, desc.filter));
     if (idx !== -1) {
       const [c] = grave.splice(idx, 1);
-      st[ctx.owner].deck.push(c);
-      ctx.engine.addLog(`${c.name} recycled from graveyard to deck.`);
+      ctx.state[ctx.owner].deck.push(c);
+      ctx.log(`${c.name} recycled from graveyard to deck.`);
     }
     return {};
   },
 
-  shuffleGraveIntoDeck(_desc: unknown, ctx) {
-    const st = ctx.engine.getState();
-    const ps = st[ctx.owner];
+  shuffleGraveIntoDeck(_desc: unknown, ctx: PureEffectCtx) {
+    const ps = ctx.state[ctx.owner];
     ps.deck.push(...ps.graveyard);
     ps.graveyard.length = 0;
     shuffleArray(ps.deck);
-    ctx.engine.addLog('Graveyard shuffled back into deck.');
+    ctx.log('Graveyard shuffled back into deck.');
     return {};
   },
 
-  shuffleDeck(_desc: unknown, ctx) {
-    const st = ctx.engine.getState();
-    shuffleArray(st[ctx.owner].deck);
-    ctx.engine.addLog('Deck shuffled.');
+  shuffleDeck(_desc: unknown, ctx: PureEffectCtx) {
+    shuffleArray(ctx.state[ctx.owner].deck);
+    ctx.log('Deck shuffled.');
     return {};
   },
 
-  peekTopCard(_desc: unknown, ctx) {
-    const st = ctx.engine.getState();
-    const deck = st[ctx.owner].deck;
-    if (deck.length > 0) {
-      ctx.engine.addLog(`Top card: ${deck[0].name}`);
-    } else {
-      ctx.engine.addLog('Deck is empty!');
-    }
+  peekTopCard(_desc: unknown, ctx: PureEffectCtx) {
+    const deck = ctx.state[ctx.owner].deck;
+    ctx.log(deck.length > 0 ? `Top card: ${deck[0].name}` : 'Deck is empty!');
     return {};
   },
 
-  specialSummonFromHand(desc: { filter?: CardFilter }, ctx) {
-    const st = ctx.engine.getState();
-    const hand = st[ctx.owner].hand;
+  async specialSummonFromHand(desc: { filter?: CardFilter }, ctx: ChainEffectCtx) {
+    const hand = ctx.state[ctx.owner].hand;
     const idx = desc.filter
       ? hand.findIndex(c => matchesFilter(c, desc.filter!))
       : hand.findIndex(c => c.type === CardType.Monster || c.type === CardType.Fusion);
     if (idx !== -1) {
-      const [card] = hand.splice(idx, 1);
-      ctx.engine.specialSummon(ctx.owner, card);
+      const card = ctx.removeFromHand(ctx.owner, idx);
+      await ctx.summon(ctx.owner, card);
     }
     return {};
   },
 
-  discardFromHand(desc: { count: number }, ctx) {
-    const st = ctx.engine.getState();
-    const hand = st[ctx.owner].hand;
+  discardFromHand(desc: { count: number }, ctx: PureEffectCtx) {
+    const hand = ctx.state[ctx.owner].hand;
     const count = Math.min(desc.count, hand.length);
     for (let i = 0; i < count && hand.length > 0; i++) {
       const idx = Math.floor(Math.random() * hand.length);
       const [c] = hand.splice(idx, 1);
-      st[ctx.owner].graveyard.push(c);
+      ctx.state[ctx.owner].graveyard.push(c);
     }
-    if (count > 0) ctx.engine.addLog(`${count} card(s) discarded from hand.`);
+    if (count > 0) ctx.log(`${count} card(s) discarded from hand.`);
     return {};
   },
 
-  discardOppHand(desc: { count: number }, ctx) {
+  discardOppHand(desc: { count: number }, ctx: PureEffectCtx) {
     const opp = oppOf(ctx.owner);
-    const st = ctx.engine.getState();
-    const hand = st[opp].hand;
+    const hand = ctx.state[opp].hand;
     const count = Math.min(desc.count, hand.length);
     for (let i = 0; i < count && hand.length > 0; i++) {
       const idx = Math.floor(Math.random() * hand.length);
       const [c] = hand.splice(idx, 1);
-      st[opp].graveyard.push(c);
+      ctx.state[opp].graveyard.push(c);
     }
-    if (count > 0) ctx.engine.addLog(`${count} card(s) discarded from opponent's hand.`);
+    if (count > 0) ctx.log(`${count} card(s) discarded from opponent's hand.`);
     return {};
   },
 
-  destroyOppSpellTrap(_desc: unknown, ctx) {
+  destroyOppSpellTrap(_desc: unknown, ctx: PureEffectCtx) {
     const opp = oppOf(ctx.owner);
-    const st = ctx.engine.getState();
-    const zones = st[opp].field.spellTraps;
+    const zones = ctx.state[opp].field.spellTraps;
     for (let i = 0; i < zones.length; i++) {
       if (zones[i]) {
-        ctx.engine.addLog(`${zones[i]!.card.name} was destroyed!`);
-        st[opp].graveyard.push(zones[i]!.card);
+        ctx.log(`${zones[i]!.card.name} was destroyed!`);
+        ctx.state[opp].graveyard.push(zones[i]!.card);
         zones[i] = null;
-        ctx.engine._removeEquipmentForMonster(opp, i);
+        ctx.removeEquipment(opp, i);
         break;
       }
     }
     return {};
   },
 
-  destroyAllOppSpellTraps(_desc: unknown, ctx) {
+  destroyAllOppSpellTraps(_desc: unknown, ctx: PureEffectCtx) {
     const opp = oppOf(ctx.owner);
-    const st = ctx.engine.getState();
-    const zones = st[opp].field.spellTraps;
+    const zones = ctx.state[opp].field.spellTraps;
     for (let i = 0; i < zones.length; i++) {
       if (zones[i]) {
-        ctx.engine.addLog(`${zones[i]!.card.name} was destroyed!`);
-        st[opp].graveyard.push(zones[i]!.card);
+        ctx.log(`${zones[i]!.card.name} was destroyed!`);
+        ctx.state[opp].graveyard.push(zones[i]!.card);
         zones[i] = null;
-        ctx.engine._removeEquipmentForMonster(opp, i);
+        ctx.removeEquipment(opp, i);
       }
     }
     return {};
   },
 
-  destroyAllSpellTraps(_desc: unknown, ctx) {
-    const st = ctx.engine.getState();
+  destroyAllSpellTraps(_desc: unknown, ctx: PureEffectCtx) {
     for (const side of ['player', 'opponent'] as Owner[]) {
-      const zones = st[side].field.spellTraps;
+      const zones = ctx.state[side].field.spellTraps;
       for (let i = 0; i < zones.length; i++) {
         if (zones[i]) {
-          ctx.engine.addLog(`${zones[i]!.card.name} was destroyed!`);
-          st[side].graveyard.push(zones[i]!.card);
+          ctx.log(`${zones[i]!.card.name} was destroyed!`);
+          ctx.state[side].graveyard.push(zones[i]!.card);
           zones[i] = null;
-          ctx.engine._removeEquipmentForMonster(side, i);
+          ctx.removeEquipment(side, i);
         }
       }
     }
     return {};
   },
 
-  destroyOppFieldSpell(_desc: unknown, ctx) {
-    const opp = oppOf(ctx.owner);
-    ctx.engine._removeFieldSpell(opp);
+  destroyOppFieldSpell(_desc: unknown, ctx: PureEffectCtx) {
+    ctx.removeFieldSpell(oppOf(ctx.owner));
     return {};
   },
 
-  changePositionOpp(_desc: unknown, ctx) {
+  changePositionOpp(_desc: unknown, ctx: PureEffectCtx) {
     const opp = oppOf(ctx.owner);
-    const st = ctx.engine.getState();
-    const monsters = st[opp].field.monsters;
+    const monsters = ctx.state[opp].field.monsters;
     const idx = findMonsterByATK(monsters, 'strongest');
     if (idx !== null && monsters[idx]) {
       const fc = monsters[idx]!;
       fc.position = fc.position === 'atk' ? 'def' : 'atk';
-      ctx.engine.addLog(`${fc.card.name} position changed to ${fc.position.toUpperCase()}!`);
+      ctx.log(`${fc.card.name} position changed to ${fc.position.toUpperCase()}!`);
     }
     return {};
   },
 
-  setFaceDown(_desc: unknown, ctx) {
+  setFaceDown(_desc: unknown, ctx: PureEffectCtx) {
     if (!ctx.targetFC) return {};
     ctx.targetFC.faceDown = true;
     ctx.targetFC.position = 'def';
     ctx.targetFC.hasFlipSummoned = false;
-    ctx.engine.addLog(`${ctx.targetFC.card.name} was set face-down!`);
+    ctx.log(`${ctx.targetFC.card.name} was set face-down!`);
     return {};
   },
 
-  flipAllOppFaceDown(_desc: unknown, ctx) {
+  flipAllOppFaceDown(_desc: unknown, ctx: PureEffectCtx) {
     const opp = oppOf(ctx.owner);
-    const st = ctx.engine.getState();
-    for (const fc of st[opp].field.monsters) {
+    for (const fc of ctx.state[opp].field.monsters) {
       if (fc && !fc.faceDown) {
         fc.faceDown = true;
         fc.position = 'def';
         fc.hasFlipSummoned = false;
       }
     }
-    ctx.engine.addLog('All opponent monsters set face-down!');
+    ctx.log('All opponent monsters set face-down!');
     return {};
   },
 
-  destroyByFilter(desc: { filter?: CardFilter; mode: 'weakest' | 'strongest' | 'highestDef' | 'first'; side?: 'opponent' | 'self' }, ctx) {
+  destroyByFilter(desc: { filter?: CardFilter; mode: 'weakest' | 'strongest' | 'highestDef' | 'first'; side?: 'opponent' | 'self' }, ctx: PureEffectCtx) {
     const side = desc.side === 'self' ? ctx.owner : oppOf(ctx.owner);
-    const st = ctx.engine.getState();
-    const monsters = st[side].field.monsters;
+    const monsters = ctx.state[side].field.monsters;
     let idx: number | null = null;
 
     if (desc.mode === 'weakest') {
@@ -823,43 +765,42 @@ const IMPL: Record<string, InternalImpl> = {
 
     if (idx !== null && monsters[idx]) {
       const fc = monsters[idx]!;
-      st[side].graveyard.push(fc.card);
+      ctx.state[side].graveyard.push(fc.card);
       monsters[idx] = null;
-      ctx.engine._removeEquipmentForMonster(side, idx);
-      ctx.engine.addLog(`${fc.card.name} was destroyed!`);
+      ctx.removeEquipment(side, idx);
+      ctx.log(`${fc.card.name} was destroyed!`);
     }
     return {};
   },
 
-  halveAtk(desc: { target: StatTarget }, ctx) {
+  halveAtk(desc: { target: StatTarget }, ctx: PureEffectCtx) {
     const fc = resolveStatTarget(desc.target, ctx);
     if (fc) {
       const half = Math.floor(fc.effectiveATK() / 2);
       const reduction = fc.effectiveATK() - half;
       fc.tempATKBonus = (fc.tempATKBonus || 0) - reduction;
-      ctx.engine.addLog(`${fc.card.name}'s ATK halved!`);
+      ctx.log(`${fc.card.name}'s ATK halved!`);
     }
     return {};
   },
 
-  doubleAtk(desc: { target: StatTarget }, ctx) {
+  doubleAtk(desc: { target: StatTarget }, ctx: PureEffectCtx) {
     const fc = resolveStatTarget(desc.target, ctx);
     if (fc) {
       const current = fc.effectiveATK();
       fc.tempATKBonus = (fc.tempATKBonus || 0) + current;
       _triggerBuffVFX(fc, ctx);
-      ctx.engine.addLog(`${fc.card.name}'s ATK doubled!`);
+      ctx.log(`${fc.card.name}'s ATK doubled!`);
     }
     return {};
   },
 
-  swapAtkDef(desc: { side: 'self' | 'opponent' | 'all' }, ctx) {
-    const st = ctx.engine.getState();
+  swapAtkDef(desc: { side: 'self' | 'opponent' | 'all' }, ctx: PureEffectCtx) {
     const sides: Owner[] = desc.side === 'all'
       ? ['player', 'opponent']
       : [desc.side === 'self' ? ctx.owner : oppOf(ctx.owner)];
     for (const side of sides) {
-      for (const fc of st[side].field.monsters) {
+      for (const fc of ctx.state[side].field.monsters) {
         if (!fc) continue;
         const atk = fc.card.atk ?? 0;
         const def = fc.card.def ?? 0;
@@ -871,39 +812,70 @@ const IMPL: Record<string, InternalImpl> = {
         fc.tempDEFBonus += (effAtk - effDef);
       }
     }
-    ctx.engine.addLog('ATK and DEF values swapped!');
+    ctx.log('ATK and DEF values swapped!');
     return {};
   },
 
-  specialSummonFromDeck(desc: { filter: CardFilter; faceDown?: boolean; position?: string }, ctx) {
-    const st = ctx.engine.getState();
-    const deck = st[ctx.owner].deck;
+  async specialSummonFromDeck(desc: { filter: CardFilter; faceDown?: boolean; position?: string }, ctx: ChainEffectCtx) {
+    const deck = ctx.state[ctx.owner].deck;
     const idx = deck.findIndex(c => matchesFilter(c, desc.filter));
     if (idx !== -1) {
-      const [card] = deck.splice(idx, 1);
+      const card = ctx.removeFromDeck(ctx.owner, idx);
       const pos = (desc.position ?? 'atk') as 'atk' | 'def';
-      ctx.engine.specialSummon(ctx.owner, card, undefined, pos, !!desc.faceDown);
-      ctx.engine.addLog(`${card.name} special summoned from deck${desc.faceDown ? ' face-down' : ''}!`);
+      await ctx.summon(ctx.owner, card, undefined, pos, !!desc.faceDown);
+      ctx.log(`${card.name} special summoned from deck${desc.faceDown ? ' face-down' : ''}!`);
     }
     return {};
   },
 
-  passive_piercing()       { return {}; },
-  passive_untargetable()   { return {}; },
-  passive_directAttack()   { return {}; },
-  passive_vsAttrBonus()    { return {}; },
-  passive_phoenixRevival() { return {}; },
-  passive_indestructible() { return {}; },
-  passive_effectImmune()   { return {}; },
-  passive_cantBeAttacked() { return {}; },
+  passive_piercing(_desc: unknown, _ctx: PureEffectCtx)       { return {}; },
+  passive_untargetable(_desc: unknown, _ctx: PureEffectCtx)   { return {}; },
+  passive_directAttack(_desc: unknown, _ctx: PureEffectCtx)   { return {}; },
+  passive_vsAttrBonus(_desc: unknown, _ctx: PureEffectCtx)    { return {}; },
+  passive_phoenixRevival(_desc: unknown, _ctx: PureEffectCtx) { return {}; },
+  passive_indestructible(_desc: unknown, _ctx: PureEffectCtx) { return {}; },
+  passive_effectImmune(_desc: unknown, _ctx: PureEffectCtx)   { return {}; },
+  passive_cantBeAttacked(_desc: unknown, _ctx: PureEffectCtx) { return {}; },
 };
 
 export const EFFECT_REGISTRY = new Map<string, EffectImpl>(
-  Object.entries(IMPL) as [string, EffectImpl][],
+  Object.entries(IMPL) as unknown as [string, EffectImpl][],
 );
 
 export function registerEffect(type: string, impl: EffectImpl): void {
   EFFECT_REGISTRY.set(type, impl);
+}
+
+export function makePureCtx(ctx: EffectContext): PureEffectCtx {
+  const engine = ctx.engine;
+  const state   = engine.getState();
+  return {
+    state,
+    owner:      ctx.owner,
+    targetFC:   ctx.targetFC,
+    targetCard: ctx.targetCard,
+    attacker:   ctx.attacker,
+    defender:   ctx.defender,
+    summonedFC: ctx.summonedFC,
+    log:               (msg) => engine.addLog(msg),
+    damage:            (owner, amount) => engine.dealDamage(owner, amount),
+    heal:              (owner, amount) => engine.gainLP(owner, amount),
+    draw:              (owner, count)  => engine.drawCard(owner, count),
+    removeEquipment:   (owner, zone)   => engine.removeEquipmentForMonster(owner, zone),
+    removeFieldSpell:  (owner)         => engine.removeFieldSpell(owner),
+    vfx:               engine.ui?.playVFX ? (type, owner, zone) => engine.ui.playVFX!(type, owner!, zone) : undefined,
+  };
+}
+
+export function makeChainCtx(ctx: EffectContext): ChainEffectCtx {
+  const engine = ctx.engine;
+  return {
+    ...makePureCtx(ctx),
+    summon:         (owner, card, zone, position, faceDown) => engine.specialSummon(owner, card, zone, position, faceDown),
+    summonFromGrave:(owner, card, fromOwner)                => engine.specialSummonFromGrave(owner, card, fromOwner),
+    removeFromHand: (owner, index)                          => engine.removeFromHand(owner, index),
+    removeFromDeck: (owner, index)                          => engine.removeFromDeck(owner, index),
+  };
 }
 
 export function canPayCost(block: CardEffectBlock, ctx: EffectContext): boolean {
@@ -914,7 +886,7 @@ export function canPayCost(block: CardEffectBlock, ctx: EffectContext): boolean 
   return true;
 }
 
-function payCost(block: CardEffectBlock, ctx: EffectContext): void {
+async function payCost(block: CardEffectBlock, ctx: EffectContext): Promise<void> {
   if (!block.cost) return;
   const st = ctx.engine.getState()[ctx.owner];
   if (block.cost.lpHalf) {
@@ -934,33 +906,30 @@ function payCost(block: CardEffectBlock, ctx: EffectContext): void {
     ctx.engine.addLog(`Discarded ${block.cost.discard} card(s) as cost.`);
   }
   if (block.cost.tributeSelf) {
-    const state = ctx.engine.getState();
-    const monsters = state[ctx.owner].field.monsters;
+    const monsters = ctx.engine.getState()[ctx.owner].field.monsters;
     for (let i = 0; i < monsters.length; i++) {
       const fc = monsters[i];
       if (fc && fc.card.effect?.actions.some(a => a.type === block.actions[0]?.type)) {
-        state[ctx.owner].graveyard.push(fc.card);
-        monsters[i] = null;
-        ctx.engine._removeEquipmentForMonster(ctx.owner, i);
-        ctx.engine.addLog(`${fc.card.name} was tributed as cost.`);
+        await ctx.engine.chainTribute(ctx.owner, fc.card);
         break;
       }
     }
   }
 }
 
-export function executeEffectBlock(block: CardEffectBlock, ctx: EffectContext): EffectSignal {
+export async function executeEffectBlock(block: CardEffectBlock, ctx: EffectContext): Promise<EffectSignal> {
   if (!canPayCost(block, ctx)) {
     ctx.engine.addLog('Cannot pay effect cost!');
     return {};
   }
-  payCost(block, ctx);
+  await payCost(block, ctx);
 
+  const pctx = makeChainCtx(ctx);
   const signal: EffectSignal = {};
   for (const action of block.actions) {
-    const impl = EFFECT_REGISTRY.get(action.type);
+    const impl = EFFECT_REGISTRY.get(action.type) as InternalImpl | undefined;
     if (impl) {
-      Object.assign(signal, impl(action, ctx));
+      Object.assign(signal, await impl(action, pctx));
     } else {
       ctx.engine.addLog(`[EffectRegistry] No handler for effect type: "${action.type}" — skipping.`);
     }
