@@ -180,6 +180,36 @@ export interface EffectContext {
   summonedFC?:  FieldCard;   // FieldCard just summoned (onOpponentSummon traps)
 }
 
+export interface PureEffectCtx {
+  state:        GameState;
+  owner:        Owner;
+  targetFC?:    FieldCard;
+  targetCard?:  CardData;
+  attacker?:    FieldCard;
+  defender?:    FieldCard;
+  summonedFC?:  FieldCard;
+  log(msg: string): void;
+  damage(owner: Owner, amount: number): void;
+  heal(owner: Owner, amount: number): void;
+  draw(owner: Owner, count?: number): void;
+  removeEquipment(owner: Owner, zone: number): void;
+  removeFieldSpell(owner: Owner): void;
+  vfx?(type: 'buff' | 'heal' | 'damage', owner?: Owner, zone?: number): void;
+}
+
+export interface ChainEffectCtx extends PureEffectCtx {
+  summon(
+    owner: Owner,
+    card: CardData,
+    zone?: number,
+    position?: Position,
+    faceDown?: boolean,
+  ): Promise<boolean>;
+  summonFromGrave(owner: Owner, card: CardData, fromOwner?: Owner): Promise<boolean>;
+  removeFromHand(owner: Owner, index: number): CardData;
+  removeFromDeck(owner: Owner, index: number): CardData;
+}
+
 export interface EffectSignal {
   cancelAttack?:     boolean;
   destroySummoned?:  boolean;
@@ -475,12 +505,17 @@ export declare class GameEngine {
   drawCard(owner: Owner, count?: number): void;
   refillHand(owner: Owner): void;
   specialSummon(owner: Owner, card: CardData, zone?: number, position?: Position, faceDown?: boolean): Promise<boolean>;
-  specialSummonFromGrave(owner: Owner, card: CardData): Promise<boolean>;
+  specialSummonFromGrave(owner: Owner, card: CardData, fromOwner?: Owner): Promise<boolean>;
   performFusionChain(owner: Owner, handIndices: number[]): Promise<boolean>;
   equipCard(owner: Owner, handIndex: number, targetOwner: Owner, targetMonsterZone: number): Promise<boolean>;
   activateFieldSpell(owner: Owner, handIndex: number): Promise<boolean>;
   _removeEquipmentForMonster(monsterOwner: Owner, monsterZone: number): void;
   _removeFieldSpell(owner: Owner): void;
+  removeEquipmentForMonster(owner: Owner, zone: number): void;
+  removeFieldSpell(owner: Owner): void;
+  removeFromHand(owner: Owner, index: number): CardData;
+  removeFromDeck(owner: Owner, index: number): CardData;
+  chainTribute(owner: Owner, card: CardData): Promise<void>;
   endTurn(): void;
   advancePhase(): void;
 }

@@ -257,9 +257,9 @@ export class GameEngine {
     this.ui.log(msg);
   }
 
-  private _safeExecuteEffect(block: CardEffectBlock, ctx: EffectContext, cardId: string, label: string): EffectSignal | null {
+  private async _safeExecuteEffect(block: CardEffectBlock, ctx: EffectContext, cardId: string, label: string): Promise<EffectSignal | null> {
     try {
-      return executeEffectBlock(block, ctx);
+      return await executeEffectBlock(block, ctx);
     } catch (e) {
       EchoesOfSanguo.log('EFFECT', `Error in ${label} [${cardId}]: ${e instanceof Error ? e.message : String(e)}`, '#f44');
       return null;
@@ -468,13 +468,14 @@ export class GameEngine {
     return true;
   }
 
-  async specialSummonFromGrave(owner: Owner, card: CardData){
-    const st = this.state[owner];
-    const graveIdx = st.graveyard.findIndex(c => c.id === card.id);
+  async specialSummonFromGrave(owner: Owner, card: CardData, fromOwner?: Owner){
+    const sourceSt = this.state[fromOwner ?? owner];
+    const graveIdx = sourceSt.graveyard.findIndex(c => c.id === card.id);
     if(graveIdx === -1){ this.addLog('Card not in graveyard!'); return false; }
+    const st = this.state[owner];
     const zone = st.field.monsters.findIndex(z => z === null);
     if(zone === -1){ this.addLog('No free zone!'); return false; }
-    const [c] = st.graveyard.splice(graveIdx, 1);
+    const [c] = sourceSt.graveyard.splice(graveIdx, 1);
     const fc = new FieldCard(c, 'atk');
     fc.summonedThisTurn = false;
     st.field.monsters[zone] = fc;
@@ -548,7 +549,7 @@ export class GameEngine {
         this.addLog(`${card.name}'s effect was negated!`);
       } else {
         const ctx = this._buildSpellContext(owner, targetInfo);
-        this._safeExecuteEffect(card.effect, ctx, card.id, 'spell effect');
+        await this._safeExecuteEffect(card.effect, ctx, card.id, 'spell effect');
       }
     }
     st.graveyard.push(card);
@@ -579,7 +580,7 @@ export class GameEngine {
     }
     if(fst.card.effect) {
       const ctx = this._buildSpellContext(owner, targetInfo);
-      this._safeExecuteEffect(fst.card.effect, ctx, fst.card.id, 'spell field effect');
+      await this._safeExecuteEffect(fst.card.effect, ctx, fst.card.id, 'spell field effect');
     }
     st.graveyard.push(fst.card);
     st.field.spellTraps[zone] = null;
@@ -620,7 +621,7 @@ export class GameEngine {
     let result: EffectSignal | null = null;
     if(fst.card.effect) {
       const ctx = this._buildTrapContext(owner, fst.card.trapTrigger, args);
-      result = this._safeExecuteEffect(fst.card.effect, ctx, fst.card.id, 'trap effect') ?? {};
+      result = await this._safeExecuteEffect(fst.card.effect, ctx, fst.card.id, 'trap effect') ?? {};
     }
     st.graveyard.push(fst.card);
     st.field.spellTraps[zone] = null;
@@ -666,7 +667,7 @@ export class GameEngine {
 
     if (card.effect) {
       const ctx: EffectContext = { engine: this, owner, targetFC };
-      this._safeExecuteEffect(card.effect, ctx, card.id, 'equipment effect');
+      await this._safeExecuteEffect(card.effect, ctx, card.id, 'equipment effect');
     }
 
     this.ui.render(this.state);
@@ -728,6 +729,36 @@ export class GameEngine {
     this.addLog(`${fs.card.name} was destroyed.`);
 
     this._recalcAllFieldSpellBonuses();
+  }
+
+  removeEquipmentForMonster(owner: Owner, zone: number): void {
+    this._removeEquipmentForMonster(owner, zone);
+  }
+
+  removeFieldSpell(owner: Owner): void {
+    this._removeFieldSpell(owner);
+  }
+
+  removeFromHand(owner: Owner, index: number): CardData {
+    const [card] = this.state[owner].hand.splice(index, 1);
+    return card;
+  }
+
+  removeFromDeck(owner: Owner, index: number): CardData {
+    const [card] = this.state[owner].deck.splice(index, 1);
+    return card;
+  }
+
+  async chainTribute(owner: Owner, card: CardData): Promise<void> {
+    const st = this.state[owner];
+    const monsters = st.field.monsters;
+    const zone = monsters.findIndex(fc => fc?.card.id === card.id);
+    if (zone === -1) return;
+    st.graveyard.push(card);
+    monsters[zone] = null;
+    this._removeEquipmentForMonster(owner, zone);
+    this.addLog(`${card.name} was tributed as cost.`);
+    await this._triggerSentToGrave(card, owner);
   }
 
   _recalcAllFieldSpellBonuses(): void {
@@ -1223,7 +1254,7 @@ export class GameEngine {
       EchoesOfSanguo.log('EFFECT', `${card.name} (${owner}) – Trigger: ${trigger}`);
       if(this.ui.showActivation) await this.ui.showActivation(card, card.description);
       const ctx: EffectContext = { engine: this, owner };
-      this._safeExecuteEffect(block, ctx, card.id, `effect trigger=${trigger}`);
+      await this._safeExecuteEffect(block, ctx, card.id, `effect trigger=${trigger}`);
     }
   }
 
@@ -1258,7 +1289,7 @@ export class GameEngine {
       EchoesOfSanguo.log('EFFECT', `${card.name} (${owner}) – Trigger: onSentToGrave`);
       if(this.ui.showActivation) await this.ui.showActivation(card, card.description);
       const ctx: EffectContext = { engine: this, owner };
-      this._safeExecuteEffect(block, ctx, card.id, 'onSentToGrave');
+      await this._safeExecuteEffect(block, ctx, card.id, 'onSentToGrave');
     }
   }
 
@@ -1272,7 +1303,7 @@ export class GameEngine {
     if(this.ui.showActivation) await this.ui.showActivation(card, card.description);
     const ctx: EffectContext = { engine: this, owner };
     for (const block of blocks) {
-      this._safeExecuteEffect(block, ctx, card.id, 'flip effect');
+      await this._safeExecuteEffect(block, ctx, card.id, 'flip effect');
     }
   }
 
