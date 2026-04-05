@@ -70,15 +70,12 @@ export function runPackReveal(
   const cx = rect.left + rect.width / 2;
   const cy = rect.top + rect.height / 2;
   const W = app.screen.width;
-  const H = app.screen.height;
 
-  // Full-screen flash
   const flash = new Graphics();
   flash.rect(0, 0, W, H).fill({ color: 0xfffee8 });
   flash.alpha = 0.8;
   container.addChild(flash);
 
-  // Bloom for SR / UR
   let bloom: Graphics | null = null;
   let bloomAlpha = 0;
   if (cfg.bloomStrength > 0) {
@@ -90,7 +87,6 @@ export function runPackReveal(
     bloomAlpha = 0.6;
   }
 
-  // Beams — additive blend container
   const beamContainer = new Container();
   beamContainer.blendMode = 'add';
   container.addChild(beamContainer);
@@ -106,7 +102,6 @@ export function runPackReveal(
     halfWidth: 12 + Math.random() * 14,
   }));
 
-  // Main particle burst
   const SIZES = [2, 3, 3, 4, 4, 6];
   const SHAPES: Particle['shape'][] = ['square', 'square', 'square', 'cross', 'diamond'];
 
@@ -125,7 +120,6 @@ export function runPackReveal(
     };
   });
 
-  // Spiral ring for UltraRare
   const SPIRAL_PALETTE = [0xff6060, 0xffcc00, 0x60ff60, 0x60a0ff, 0xe070ff];
   const spiralParticles: Particle[] = cfg.spiral
     ? Array.from({ length: 40 }, (_, i) => {
