@@ -86,4 +86,17 @@ describe('validateTcgCards', () => {
     expect(result.valid).toBe(false);
     expect(result.errors.some(e => e.includes('rarity'))).toBe(true);
   });
+
+  it('accepts custom rarity IDs when validRarities is provided', () => {
+    const cards = [{ id: 1, type: 1, level: 4, rarity: 10 }];
+    const result = validateTcgCards(cards, { validRarities: new Set([1, 2, 4, 6, 8, 10, 12]) });
+    expect(result.valid).toBe(true);
+  });
+
+  it('rejects default rarity IDs when custom validRarities excludes them', () => {
+    const cards = [{ id: 1, type: 1, level: 4, rarity: 1 }];
+    const result = validateTcgCards(cards, { validRarities: new Set([10, 12]) });
+    expect(result.valid).toBe(false);
+    expect(result.errors.some(e => e.includes('rarity'))).toBe(true);
+  });
 });

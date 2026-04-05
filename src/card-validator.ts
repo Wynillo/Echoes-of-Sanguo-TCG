@@ -11,7 +11,7 @@ const VALID_RARITIES    = new Set(TCG_RARITIES);
 const VALID_SPELL_TYPES = new Set(TCG_SPELL_TYPES);
 const VALID_TRAP_TRIGGERS = new Set(TCG_TRAP_TRIGGERS);
 
-function validateSingleCard(card: unknown, index: number): string[] {
+function validateSingleCard(card: unknown, index: number, validRarities: Set<number>): string[] {
   const errors: string[] = [];
   const prefix = `cards[${index}]`;
 
@@ -99,9 +99,9 @@ function validateSingleCard(card: unknown, index: number): string[] {
     }
   }
 
-  // rarity: required int in valid set
-  if (typeof c.rarity !== 'number' || !VALID_RARITIES.has(c.rarity as typeof TCG_RARITIES[number])) {
-    errors.push(`${prefix}.rarity: must be one of [${[...VALID_RARITIES].join(',')}], got ${c.rarity}`);
+  // rarity: required int in valid set (extensible via rarities.json)
+  if (typeof c.rarity !== 'number' || !validRarities.has(c.rarity)) {
+    errors.push(`${prefix}.rarity: must be one of [${[...validRarities].sort((a, b) => a - b).join(',')}], got ${c.rarity}`);
   }
 
   // attribute: optional int 1-6
@@ -159,9 +159,13 @@ function validateSingleCard(card: unknown, index: number): string[] {
 /**
  * Validate an array of TcgCard objects from cards.json
  */
-export function validateTcgCards(data: unknown): ValidationResult {
+export function validateTcgCards(
+  data: unknown,
+  options?: { validRarities?: Set<number> },
+): ValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
+  const rarities = options?.validRarities ?? VALID_RARITIES;
 
   if (!Array.isArray(data)) {
     return { valid: false, errors: ['cards.json must contain a JSON array'], warnings };
@@ -174,7 +178,7 @@ export function validateTcgCards(data: unknown): ValidationResult {
   // Validate each card
   const seenIds = new Set<number>();
   for (let i = 0; i < data.length; i++) {
-    const cardErrors = validateSingleCard(data[i], i);
+    const cardErrors = validateSingleCard(data[i], i, rarities);
     errors.push(...cardErrors);
 
     // Check for duplicate IDs
