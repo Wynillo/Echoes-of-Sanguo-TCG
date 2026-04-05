@@ -70,6 +70,7 @@ export function runPackReveal(
   const cx = rect.left + rect.width / 2;
   const cy = rect.top + rect.height / 2;
   const W = app.screen.width;
+  const H = app.screen.height;
 
   const flash = new Graphics();
   flash.rect(0, 0, W, H).fill({ color: 0xfffee8 });
