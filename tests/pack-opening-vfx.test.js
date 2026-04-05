@@ -51,25 +51,25 @@ describe('fxManager', () => {
 describe('RARITY_CONFIG', () => {
   it('Rare: 60 particles, 4 beams, no bloom, no spiral', async () => {
     const { RARITY_CONFIG } = await import('../src/react/pixi/effects/packReveal.js');
-    expect(RARITY_CONFIG[4].particleCount).toBe(60);
-    expect(RARITY_CONFIG[4].beamCount).toBe(4);
-    expect(RARITY_CONFIG[4].bloomStrength).toBe(0);
-    expect(RARITY_CONFIG[4].spiral).toBe(false);
+    expect(RARITY_CONFIG[4 /* Rarity.Rare */].particleCount).toBe(60);
+    expect(RARITY_CONFIG[4 /* Rarity.Rare */].beamCount).toBe(4);
+    expect(RARITY_CONFIG[4 /* Rarity.Rare */].bloomStrength).toBe(0);
+    expect(RARITY_CONFIG[4 /* Rarity.Rare */].spiral).toBe(false);
   });
 
   it('SuperRare: 120 particles, 6 beams, soft bloom, no spiral', async () => {
     const { RARITY_CONFIG } = await import('../src/react/pixi/effects/packReveal.js');
-    expect(RARITY_CONFIG[6].particleCount).toBe(120);
-    expect(RARITY_CONFIG[6].beamCount).toBe(6);
-    expect(RARITY_CONFIG[6].bloomStrength).toBeGreaterThan(0);
-    expect(RARITY_CONFIG[6].spiral).toBe(false);
+    expect(RARITY_CONFIG[6 /* Rarity.SuperRare */].particleCount).toBe(120);
+    expect(RARITY_CONFIG[6 /* Rarity.SuperRare */].beamCount).toBe(6);
+    expect(RARITY_CONFIG[6 /* Rarity.SuperRare */].bloomStrength).toBeGreaterThan(0);
+    expect(RARITY_CONFIG[6 /* Rarity.SuperRare */].spiral).toBe(false);
   });
 
   it('UltraRare: 180 particles, 8 beams, strong bloom, spiral', async () => {
     const { RARITY_CONFIG } = await import('../src/react/pixi/effects/packReveal.js');
-    expect(RARITY_CONFIG[8].particleCount).toBe(180);
-    expect(RARITY_CONFIG[8].beamCount).toBe(8);
-    expect(RARITY_CONFIG[8].bloomStrength).toBeGreaterThan(RARITY_CONFIG[6].bloomStrength);
-    expect(RARITY_CONFIG[8].spiral).toBe(true);
+    expect(RARITY_CONFIG[8 /* Rarity.UltraRare */].particleCount).toBe(180);
+    expect(RARITY_CONFIG[8 /* Rarity.UltraRare */].beamCount).toBe(8);
+    expect(RARITY_CONFIG[8 /* Rarity.UltraRare */].bloomStrength).toBeGreaterThan(RARITY_CONFIG[6 /* Rarity.SuperRare */].bloomStrength);
+    expect(RARITY_CONFIG[8 /* Rarity.UltraRare */].spiral).toBe(true);
   });
 });
