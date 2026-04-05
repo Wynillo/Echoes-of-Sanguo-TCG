@@ -40,6 +40,36 @@ const TYPE_ICONS: Record<number, string> = {
   [CardType.Equipment]: 'GiShield',
 };
 
+const RARITY_LABELS: Record<number, string> = {
+  [Rarity.Common]:    'C',
+  [Rarity.Uncommon]:  'U',
+  [Rarity.Rare]:      'R',
+  [Rarity.SuperRare]: 'SR',
+  [Rarity.UltraRare]: 'UR',
+};
+
+function getRarityBorderClass(rarity: number, s: Record<string, string>): string {
+  switch (rarity) {
+    case Rarity.Common:    return s.borderCommon;
+    case Rarity.Uncommon:  return s.borderUncommon;
+    case Rarity.Rare:      return s.borderRare;
+    case Rarity.SuperRare: return s.borderSuperRare;
+    case Rarity.UltraRare: return s.borderUltraRare;
+    default: return '';
+  }
+}
+
+function getNewBadgeClass(rarity: number, s: Record<string, string>): string {
+  switch (rarity) {
+    case Rarity.Common:    return s.newBadgeCommon;
+    case Rarity.Uncommon:  return s.newBadgeUncommon;
+    case Rarity.Rare:      return s.newBadgeRare;
+    case Rarity.SuperRare: return s.newBadgeSuperRare;
+    case Rarity.UltraRare: return s.newBadgeUltraRare;
+    default: return s.newBadgeCommon;
+  }
+}
+
 /* ── Helpers ───────────────────────────────────────────────── */
 
 /** Screen shake utility */
@@ -68,6 +98,18 @@ export default function PackOpeningScreen() {
     [..._cards].sort((a, b) => (a.rarity ?? 1) - (b.rarity ?? 1)),
     [_cards],
   );
+
+  const rarityBreakdown = useMemo(() => {
+    const counts = new Map<number, number>();
+    for (const card of sortedCards) {
+      const r = card.rarity ?? Rarity.Common;
+      counts.set(r, (counts.get(r) ?? 0) + 1);
+    }
+    return [...counts.entries()]
+      .sort(([a], [b]) => b - a)
+      .map(([r, n]) => `${n} ${RARITY_LABELS[r] ?? '?'}`)
+      .join(' · ');
+  }, [sortedCards]);
 
   const [phase, setPhase] = useState<Phase>('pack');
   const [tapCount, setTapCount] = useState(0);
@@ -421,23 +463,31 @@ export default function PackOpeningScreen() {
   // Phase 3: Summary
   return (
     <div className={styles.screen}>
-      <button className={`btn-secondary ${styles.backBtn}`} onClick={() => navigateTo('shop')}>{t('pack_opening.back_shop')}</button>
+      <button className={`btn-secondary ${styles.backBtn}`} onClick={() => navigateTo('shop')}>
+        {t('pack_opening.back_shop')}
+      </button>
       <div className={styles.summaryPhase}>
         <div className={styles.header}>
           <h2 className={styles.title}>{t('pack_opening.title')}</h2>
+          {rarityBreakdown && <p className={styles.breakdown}>{rarityBreakdown}</p>}
         </div>
 
         <div className={styles.grid}>
           {sortedCards.map((card, i) => {
             const isNew = !ownedBefore.has(card.id);
+            const rarity = card.rarity ?? Rarity.Common;
             return (
               <div
                 key={i}
-                className={styles.cardWrapper}
-                style={{ animationDelay: `${i * 0.12}s`, cursor: 'pointer' }}
+                className={`${styles.cardWrapper} ${getRarityBorderClass(rarity, styles)}`}
+                style={{ animationDelay: `${i * 0.08}s`, cursor: 'pointer' }}
                 onClick={() => openModal({ type: 'card-detail', card })}
               >
-                {isNew && <div className={styles.newBadge}>{t('pack_opening.new_badge')}</div>}
+                {isNew && (
+                  <div className={`${styles.newBadge} ${getNewBadgeClass(rarity, styles)}`}>
+                    {t('pack_opening.new_badge')}
+                  </div>
+                )}
                 <Card card={card} />
               </div>
             );
@@ -445,7 +495,9 @@ export default function PackOpeningScreen() {
         </div>
 
         <div className={styles.buttons}>
-          <button className="btn-primary" onClick={() => navigateTo('save-point')}>{t('pack_opening.home')}</button>
+          <button className="btn-primary" onClick={() => navigateTo('save-point')}>
+            {t('pack_opening.home')}
+          </button>
         </div>
       </div>
     </div>
