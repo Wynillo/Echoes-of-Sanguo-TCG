@@ -79,7 +79,7 @@ export interface TcgCard {
   level:      number;       // 1-12
   atk?:       number;       // optional, absent for Spells/Traps
   def?:       number;       // optional, absent for Spells/Traps
-  rarity:     number;       // 1-8
+  rarity:     number;       // default: 1,2,4,6,8 — extensible via rarities.json
   type:       number;       // 1-5
   attribute?: number;       // 1-6, absent for Spells/Traps
   race?:      number;       // positive int (base set: 1-12), absent for Spells/Traps
@@ -113,7 +113,7 @@ export interface TcgParsedCard {
   description:   string;     // from TcgCardDefinition for the requested locale
   type:          number;     // TCG_TYPE_* — same numeric value as CardType enum
   level:         number;
-  rarity:        number;     // TCG_RARITY_* — same numeric value as Rarity enum
+  rarity:        number;     // TCG_RARITY_* — extensible via rarities.json
   atk?:          number;
   def?:          number;
   attribute?:    number;     // TCG_ATTR_* — same numeric value as Attribute enum

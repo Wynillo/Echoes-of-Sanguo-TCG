@@ -74,6 +74,36 @@ describe('validateTcgArchive', () => {
     expect(result.warnings.some(w => w.includes('plaintext'))).toBe(true);
   });
 
+  it('accepts custom rarity IDs when rarities.json is present', async () => {
+    const cards = JSON.stringify([
+      { id: 1, type: 1, level: 4, rarity: 10, name: 'Custom Card', description: 'A card with custom rarity' },
+    ]);
+    const rarities = JSON.stringify([
+      { id: 10, key: 'HyperRare', value: 'Hyper Rare', color: '#f97316' },
+      { id: 12, key: 'UltraRare', value: 'Ultra Rare', color: '#ff6600' },
+    ]);
+    const zip = makeZip({
+      'cards.json': cards,
+      'rarities.json': rarities,
+      'img/1.png': TINY_PNG,
+    });
+    const result = await validateTcgArchive(zip);
+    expect(result.valid).toBe(true);
+  });
+
+  it('rejects custom rarity IDs when no rarities.json is present', async () => {
+    const cards = JSON.stringify([
+      { id: 1, type: 1, level: 4, rarity: 10, name: 'Custom Card', description: 'A card with custom rarity' },
+    ]);
+    const zip = makeZip({
+      'cards.json': cards,
+      'img/1.png': TINY_PNG,
+    });
+    const result = await validateTcgArchive(zip);
+    expect(result.valid).toBe(false);
+    expect(result.errors.some(e => e.includes('rarity'))).toBe(true);
+  });
+
   it('warns when using both plaintext and locale files', async () => {
     const cards = JSON.stringify([
       { id: 1, type: 1, level: 4, rarity: 1, name: 'Dragon', description: 'A dragon card' },
