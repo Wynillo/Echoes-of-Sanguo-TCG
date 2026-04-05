@@ -249,6 +249,22 @@
   will-change: opacity;
 }
 
+.scanlineTint {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 200;
+  opacity: 0;
+  will-change: opacity;
+  background: repeating-linear-gradient(
+    to bottom,
+    var(--scanline-color, rgba(255, 255, 255, 0.04)) 0px,
+    var(--scanline-color, rgba(255, 255, 255, 0.04)) 1px,
+    transparent 1px,
+    transparent 4px
+  );
+}
+
 .bgUncommon {
   background: radial-gradient(ellipse at center, rgba(40, 60, 120, 0.3) 0%, transparent 70%);
   animation: bgPulse 2s ease-in-out infinite;
