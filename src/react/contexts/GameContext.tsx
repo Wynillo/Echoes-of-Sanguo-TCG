@@ -141,6 +141,9 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     onDraw: (owner, count) => {
       if (owner === 'player') setPendingDraw(prev => prev + count);
     },
+    selectFromDeck: (cards) => new Promise(resolve => {
+      openModalRef.current({ type: 'deck-select', cards, resolve });
+    }),
     showCoinToss: (playerGoesFirst: boolean) => {
       return new Promise<void>(resolve => {
         openModalRef.current({ type: 'coin-toss', playerGoesFirst, resolve });

@@ -341,7 +341,7 @@ describe('bounceAllOppMonsters', () => {
 });
 
 describe('searchDeckToHand', () => {
-  it('searches deck for a card with matching filter', async () => {
+  it('searches deck for a card with matching filter (fallback auto-pick)', async () => {
     const waterCard = { name: 'Wasserkarte', attribute: 4 };
     const fireCard = { name: 'Feuerkarte', attribute: 3 };
     const deck = [fireCard, waterCard];
@@ -358,6 +358,48 @@ describe('searchDeckToHand', () => {
     );
     expect(hand).toContain(waterCard);
     expect(deck).not.toContain(waterCard);
+  });
+
+  it('lets player choose from multiple matching cards via selectFromDeck', async () => {
+    const card1 = { name: 'Water A', attribute: 4 };
+    const card2 = { name: 'Water B', attribute: 4 };
+    const fireCard = { name: 'Fire', attribute: 3 };
+    const deck = [fireCard, card1, card2];
+    const hand = [];
+    const e = mockEngine({
+      getState: () => ({
+        player: { deck, hand },
+        opponent: { deck: [], hand: [] },
+      }),
+      ui: { selectFromDeck: async (cards) => cards[1] },
+    });
+    await executeEffectBlock(
+      { trigger: 'onSummon', actions: [{ type: 'searchDeckToHand', filter: { attr: 4 } }] },
+      ctx(e),
+    );
+    expect(hand).toContain(card2);
+    expect(deck).not.toContain(card2);
+    expect(deck).toContain(card1);
+  });
+
+  it('auto-picks first match for opponent without UI', async () => {
+    const card1 = { name: 'Water A', attribute: 4 };
+    const card2 = { name: 'Water B', attribute: 4 };
+    const deck = [card1, card2];
+    const hand = [];
+    const e = mockEngine({
+      getState: () => ({
+        player: { deck: [], hand: [] },
+        opponent: { deck, hand },
+      }),
+    });
+    await executeEffectBlock(
+      { trigger: 'onSummon', actions: [{ type: 'searchDeckToHand', filter: { attr: 4 } }] },
+      ctx(e, 'opponent'),
+    );
+    expect(hand[0]).toBe(card1);
+    expect(deck).not.toContain(card1);
+    expect(deck).toContain(card2);
   });
 });
 

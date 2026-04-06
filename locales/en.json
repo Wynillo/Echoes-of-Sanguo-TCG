@@ -321,6 +321,9 @@
     "title": "Choose Monster from Graveyard",
     "cancel": "✕ Cancel"
   },
+  "deckSearch": {
+    "title": "Choose a Card from Deck"
+  },
   "campaign": {
     "title": "Campaign",
     "chapter": "Chapter",

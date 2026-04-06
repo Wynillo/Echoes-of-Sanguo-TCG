@@ -6,6 +6,7 @@ export type ModalState =
   | { type: 'card-detail'; card: CardData; fc?: FieldCard | null; index?: number; state?: GameState; source?: 'hand' | 'field' | 'field-spell' | 'deckbuilder-collection' | 'deckbuilder-deck'; onDeckAction?: (action: 'add' | 'remove') => void }
   | { type: 'trap-prompt'; opts: PromptOptions; resolve: (v: boolean) => void }
   | { type: 'grave-select'; cards: CardData[]; resolve: (card: CardData) => void }
+  | { type: 'deck-select'; cards: CardData[]; resolve: (card: CardData) => void }
   | { type: 'card-list' }
   | { type: 'result'; resultType: 'victory' | 'defeat'; coinsEarned: number; campaignDuel?: boolean }
   | { type: 'main-options' }

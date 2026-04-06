@@ -4,6 +4,7 @@ import { useFocusTrap } from '../hooks/useFocusTrap.js';
 import { CardDetailModal }  from './CardDetailModal.js';
 import { TrapPromptModal }  from './TrapPromptModal.js';
 import { GraveSelectModal } from './GraveSelectModal.js';
+import { DeckSelectModal }  from './DeckSelectModal.js';
 import { CardListModal }    from './CardListModal.js';
 import { ResultModal }      from './ResultModal.js';
 import { OptionsModal }     from './OptionsModal.js';
@@ -13,12 +14,13 @@ import { GauntletTransitionModal } from './GauntletTransitionModal.js';
 import { HowToPlayModal } from './HowToPlayModal.js';
 import { FusionConfirmModal } from './FusionConfirmModal.js';
 
-const NON_DISMISSIBLE = new Set(['trap-prompt', 'grave-select', 'coin-toss', 'gauntlet-transition', 'fusion-confirm']);
+const NON_DISMISSIBLE = new Set(['trap-prompt', 'grave-select', 'deck-select', 'coin-toss', 'gauntlet-transition', 'fusion-confirm']);
 
 const MODAL_LABELS: Record<string, string> = {
   'card-detail': 'Card Details',
   'trap-prompt': 'Trap Activation',
   'grave-select': 'Graveyard Selection',
+  'deck-select': 'Deck Search',
   'card-list': 'Card List',
   'result': 'Duel Result',
   'main-options': 'Options',
@@ -66,6 +68,7 @@ export function ModalOverlay() {
       {modal.type === 'card-detail'  && <CardDetailModal  modal={modal} />}
       {modal.type === 'trap-prompt'  && <TrapPromptModal  modal={modal} />}
       {modal.type === 'grave-select' && <GraveSelectModal modal={modal} />}
+      {modal.type === 'deck-select'  && <DeckSelectModal  modal={modal} />}
       {modal.type === 'card-list'    && <CardListModal />}
       {modal.type === 'result'       && <ResultModal      modal={modal} />}
       {modal.type === 'main-options' && <OptionsModal />}

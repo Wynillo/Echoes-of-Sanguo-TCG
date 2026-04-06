@@ -204,13 +204,21 @@ const IMPL: Record<string, InternalImpl> = {
     return {};
   },
 
-  searchDeckToHand(desc: { filter: CardFilter }, ctx: PureEffectCtx) {
+  async searchDeckToHand(desc: { filter: CardFilter }, ctx: ChainEffectCtx) {
     const deck = ctx.state[ctx.owner].deck;
-    const idx = deck.findIndex(c => matchesFilter(c, desc.filter));
+    const matches = deck.filter(c => matchesFilter(c, desc.filter));
+    if (matches.length === 0) return {};
+
+    const chosen = ctx.owner === 'opponent'
+      ? matches[0]
+      : await ctx.selectFromDeck(matches);
+    if (!chosen) return {};
+
+    const idx = deck.indexOf(chosen);
     if (idx !== -1) {
-      const [c] = deck.splice(idx, 1);
-      ctx.state[ctx.owner].hand.push(c);
-      ctx.log(`${ctx.owner === 'player' ? 'You' : 'Opponent'}: ${c.name} added to hand by effect.`);
+      deck.splice(idx, 1);
+      ctx.state[ctx.owner].hand.push(chosen);
+      ctx.log(`${ctx.owner === 'player' ? 'You' : 'Opponent'}: ${chosen.name} added to hand by effect.`);
     }
     return {};
   },
@@ -875,6 +883,7 @@ export function makeChainCtx(ctx: EffectContext): ChainEffectCtx {
     summonFromGrave:(owner, card, fromOwner)                => engine.specialSummonFromGrave(owner, card, fromOwner),
     removeFromHand: (owner, index)                          => engine.removeFromHand(owner, index),
     removeFromDeck: (owner, index)                          => engine.removeFromDeck(owner, index),
+    selectFromDeck: (cards)                                 => engine.ui?.selectFromDeck ? engine.ui.selectFromDeck(cards) : Promise.resolve(cards[0] ?? null),
   };
 }
 
