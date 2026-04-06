@@ -1407,7 +1407,7 @@ button { cursor: pointer; border: none; font-family: inherit; transition: none; 
     justify-content: center;
     gap: 6px;
     position: fixed;
-    bottom: calc(env(safe-area-inset-bottom, 0px) + 80px);
+    bottom: calc(env(safe-area-inset-bottom, 0px) + var(--card-h) + 12px);
     right: 16px;
     z-index: 90;
     min-width: 100px;
