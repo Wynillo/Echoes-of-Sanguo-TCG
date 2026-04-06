@@ -131,6 +131,7 @@ export default function PackOpeningScreen() {
       skipRef.current = true;
       setPhase('summary');
     }
+    return () => { fxManager.clearAll(); };
   }, []);
 
   const handleSkip = useCallback(() => {
