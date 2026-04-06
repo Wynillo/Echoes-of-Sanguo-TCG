@@ -4,7 +4,7 @@ import type { TcgLoadResult, TcgParsedCard, TcgOpponentDeck, TcgOpponentDescript
 import type { CardData, FusionRecipe, FusionFormula, FusionComboType, OpponentConfig } from './types.js';
 import { CardType, Rarity } from './types.js';
 import { CARD_DB, FUSION_RECIPES, FUSION_FORMULAS, OPPONENT_CONFIGS, STARTER_DECKS, PLAYER_DECK_IDS, OPPONENT_DECK_IDS } from './cards.js';
-import { intToCardType, intToAttribute, intToRace, intToRarity, intToSpellType, intToTrapTrigger } from './enums.js';
+import { intToCardType, intToAttribute, intToRace, intToRarity, intToSpellType, intToTrapTrigger, isTrapTrigger } from './enums.js';
 import { deserializeEffect, isValidEffectString, parseEffectString } from './effect-serializer.js';
 import { applyRules } from './rules.js';
 import { applyTypeMeta } from './type-metadata.js';
@@ -82,6 +82,10 @@ function parsedToCardData(p: TcgParsedCard, warnings: string[]): CardData {
   if (p.trapTrigger) {
     try { card.trapTrigger = intToTrapTrigger(p.trapTrigger); }
     catch { warnings.push(`Card #${p.id}: invalid trapTrigger int ${p.trapTrigger}`); }
+  }
+  if (!card.trapTrigger && type === CardType.Trap && card.effect) {
+    const trigger = card.effect.trigger;
+    if (isTrapTrigger(trigger)) card.trapTrigger = trigger;
   }
   if (p.target)      card.target      = p.target;
   if (p.atkBonus !== undefined) card.atkBonus = p.atkBonus;
