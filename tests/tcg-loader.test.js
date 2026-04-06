@@ -145,6 +145,30 @@ describe('loadAndApplyTcg (bridge)', () => {
     expect(card.equipRequirement.attr).toBe(3); // Fire
   });
 
+  it('infers trapTrigger from effect string when not set in TCG data', async () => {
+    const trapCard = {
+      id: 99, type: 4, rarity: 1,
+      effect: 'onAttack:destroyAttacker()',
+    };
+    const buf = await buildMinimalZip({ cards: [VALID_CARD, trapCard] });
+    await loadAndApplyTcg(buf);
+    const card = CARD_DB['99'];
+    expect(card).toBeDefined();
+    expect(card.trapTrigger).toBe('onAttack');
+  });
+
+  it('preserves explicit trapTrigger over effect-inferred value', async () => {
+    const trapCard = {
+      id: 98, type: 4, rarity: 1, trapTrigger: 5,
+      effect: 'onOpponentSpell:cancelEffect()',
+    };
+    const buf = await buildMinimalZip({ cards: [VALID_CARD, trapCard] });
+    await loadAndApplyTcg(buf);
+    const card = CARD_DB['98'];
+    expect(card).toBeDefined();
+    expect(card.trapTrigger).toBe('onOpponentSpell');
+  });
+
   it('warns on invalid effect string but loads card', async () => {
     const effectCard = { ...VALID_CARD, id: 2, effect: 'invalid_effect_string' };
     const buf = await buildMinimalZip({

@@ -151,3 +151,7 @@ export function intToTrapTrigger(n: number): TrapTrigger {
   if (t === undefined) throw new Error(`Unknown trapTrigger int: ${n}`);
   return t;
 }
+
+export function isTrapTrigger(s: string): s is TrapTrigger {
+  return s in TRAP_TRIGGER_TO_INT;
+}
