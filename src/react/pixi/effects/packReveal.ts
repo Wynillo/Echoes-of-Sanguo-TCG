@@ -62,9 +62,11 @@ export function runPackReveal(
   rarity: number,
   cardEl: HTMLElement,
   onDone: () => void,
-): void {
+): () => void {
   const cfg = RARITY_CONFIG[rarity];
-  if (!cfg) { onDone(); return; }
+  if (!cfg) { onDone(); return () => {}; }
+
+  let stopped = false;
 
   const rect = cardEl.getBoundingClientRect();
   const cx = rect.left + rect.width / 2;
@@ -149,6 +151,11 @@ export function runPackReveal(
   let flashAlpha = 0.8;
 
   function tick() {
+    if (stopped) {
+      app.ticker.remove(tick);
+      return;
+    }
+
     // Flash decay
     flashAlpha = Math.max(0, flashAlpha - 0.07);
     flash.alpha = flashAlpha;
@@ -212,4 +219,6 @@ export function runPackReveal(
   }
 
   app.ticker.add(tick);
+
+  return () => { stopped = true; };
 }

@@ -4,6 +4,7 @@ import { runPackReveal } from './effects/packReveal.js';
 
 let _app: Application | null = null;
 const _containers = new Set<Container>();
+const _stopFns = new Set<() => void>();
 
 export const fxManager = {
   async init(canvas: HTMLCanvasElement): Promise<void> {
@@ -28,14 +29,18 @@ export const fxManager = {
     const c = new Container();
     _app.stage.addChild(c);
     _containers.add(c);
-    runPackReveal(_app, c, rarity, cardEl, () => {
+    const stop = runPackReveal(_app, c, rarity, cardEl, () => {
       _app?.stage.removeChild(c);
       c.destroy({ children: true });
       _containers.delete(c);
+      _stopFns.delete(stop);
     });
+    _stopFns.add(stop);
   },
 
   clearAll(): void {
+    for (const fn of _stopFns) fn();
+    _stopFns.clear();
     for (const c of _containers) {
       _app?.stage.removeChild(c);
       c.destroy({ children: true });
