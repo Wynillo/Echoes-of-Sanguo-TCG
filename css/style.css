@@ -1400,7 +1400,7 @@ button { cursor: pointer; border: none; font-family: inherit; transition: none; 
   #opp-hand .opp-hand-card            { margin-right: -10px; }
   #opp-hand .opp-hand-card:last-child { margin-right: 0; }
 
-  /* Floating phase button — bottom-right, thumb-reachable */
+  /* Floating phase button — centered above hand */
   .floating-phase-btn {
     display: flex;
     align-items: center;
@@ -1408,7 +1408,8 @@ button { cursor: pointer; border: none; font-family: inherit; transition: none; 
     gap: 6px;
     position: fixed;
     bottom: calc(env(safe-area-inset-bottom, 0px) + var(--card-h) + 12px);
-    right: 16px;
+    left: 50%;
+    transform: translateX(-50%);
     z-index: 90;
     min-width: 100px;
     min-height: 56px;
