@@ -321,6 +321,9 @@
     "title": "Monster aus dem Friedhof wählen",
     "cancel": "✕ Abbrechen"
   },
+  "deckSearch": {
+    "title": "Karte aus dem Deck wählen"
+  },
   "campaign": {
     "title": "Kampagne",
     "chapter": "Kapitel",

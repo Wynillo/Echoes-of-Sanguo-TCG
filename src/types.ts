@@ -208,6 +208,7 @@ export interface ChainEffectCtx extends PureEffectCtx {
   summonFromGrave(owner: Owner, card: CardData, fromOwner?: Owner): Promise<boolean>;
   removeFromHand(owner: Owner, index: number): CardData;
   removeFromDeck(owner: Owner, index: number): CardData;
+  selectFromDeck(cards: CardData[]): Promise<CardData | null>;
 }
 
 export interface EffectSignal {
@@ -434,6 +435,7 @@ export interface UICallbacks {
   onDraw?:              (owner: Owner, count: number) => void;
   onDuelEnd?:           (result: 'victory' | 'defeat', oppId: number | null, stats: DuelStats) => void;
   showCoinToss?:        (playerGoesFirst: boolean) => Promise<void>;
+  selectFromDeck?:      (cards: CardData[]) => Promise<CardData>;
 }
 
 export interface CollectionEntry {
