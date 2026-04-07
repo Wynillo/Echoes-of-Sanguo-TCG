@@ -87,6 +87,42 @@ describe('validateTcgCards', () => {
     expect(result.errors.some(e => e.includes('rarity'))).toBe(true);
   });
 
+  it('accepts trapTrigger IDs 1-9', () => {
+    for (let trigger = 1; trigger <= 9; trigger++) {
+      const cards = [{ id: 1, type: 4, level: 0, rarity: 1, trapTrigger: trigger }];
+      const result = validateTcgCards(cards);
+      expect(result.valid).toBe(true);
+    }
+  });
+
+  it('rejects invalid trapTrigger ID', () => {
+    const cards = [{ id: 1, type: 4, level: 0, rarity: 1, trapTrigger: 10 }];
+    const result = validateTcgCards(cards);
+    expect(result.valid).toBe(false);
+    expect(result.errors.some(e => e.includes('trapTrigger'))).toBe(true);
+  });
+
+  it('accepts string trapTrigger names and coerces to int', () => {
+    const names = [
+      'onAttack', 'onOwnMonsterAttacked', 'onOpponentSummon', 'manual',
+      'onOpponentSpell', 'onAnySummon', 'onOpponentTrap', 'onOppCardEffect', 'onOpponentDraw',
+    ];
+    for (const name of names) {
+      const card = { id: 1, type: 4, level: 0, rarity: 1, trapTrigger: name } as Record<string, unknown>;
+      const cards = [card];
+      const result = validateTcgCards(cards);
+      expect(result.valid).toBe(true);
+      expect(typeof card.trapTrigger).toBe('number');
+    }
+  });
+
+  it('rejects invalid string trapTrigger names', () => {
+    const cards = [{ id: 1, type: 4, level: 0, rarity: 1, trapTrigger: 'invalidTrigger' }];
+    const result = validateTcgCards(cards);
+    expect(result.valid).toBe(false);
+    expect(result.errors.some(e => e.includes('trapTrigger'))).toBe(true);
+  });
+
   it('accepts custom rarity IDs when validRarities is provided', () => {
     const cards = [{ id: 1, type: 1, level: 4, rarity: 10 }];
     const result = validateTcgCards(cards, { validRarities: new Set([1, 2, 4, 6, 8, 10, 12]) });
