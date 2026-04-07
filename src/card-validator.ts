@@ -4,7 +4,7 @@
 // ============================================================
 
 import type { ValidationResult } from './types.js';
-import { TCG_TYPES, TCG_ATTRIBUTES, TCG_RARITIES, TCG_TYPE_SPELL, TCG_TYPE_TRAP, TCG_TYPE_MONSTER, TCG_TYPE_FUSION, TCG_TYPE_EQUIPMENT, TCG_SPELL_TYPES, TCG_TRAP_TRIGGERS } from './types.js';
+import { TCG_TYPES, TCG_ATTRIBUTES, TCG_RARITIES, TCG_TYPE_SPELL, TCG_TYPE_TRAP, TCG_TYPE_MONSTER, TCG_TYPE_FUSION, TCG_TYPE_EQUIPMENT, TCG_SPELL_TYPES, TCG_TRAP_TRIGGERS, TCG_TRAP_TRIGGER_NAME_TO_ID } from './types.js';
 const VALID_TYPES       = new Set(TCG_TYPES);
 const VALID_ATTRIBUTES  = new Set(TCG_ATTRIBUTES);
 const VALID_RARITIES    = new Set(TCG_RARITIES);
@@ -132,10 +132,18 @@ function validateSingleCard(card: unknown, index: number, validRarities: Set<num
     }
   }
 
-  // trapTrigger: optional int 1-7
+  // trapTrigger: optional int 1-9 or string name (coerced to int)
   if (c.trapTrigger !== undefined && c.trapTrigger !== null) {
-    if (typeof c.trapTrigger !== 'number' || !Number.isInteger(c.trapTrigger) || !VALID_TRAP_TRIGGERS.has(c.trapTrigger as typeof TCG_TRAP_TRIGGERS[number])) {
-      errors.push(`${prefix}.trapTrigger: must be one of [1,2,3,4,5,6,7], got ${c.trapTrigger}`);
+    let triggerValue = c.trapTrigger;
+    if (typeof triggerValue === 'string') {
+      const resolved = TCG_TRAP_TRIGGER_NAME_TO_ID[triggerValue];
+      if (resolved !== undefined) {
+        c.trapTrigger = resolved;
+        triggerValue = resolved;
+      }
+    }
+    if (typeof triggerValue !== 'number' || !Number.isInteger(triggerValue) || !VALID_TRAP_TRIGGERS.has(triggerValue as typeof TCG_TRAP_TRIGGERS[number])) {
+      errors.push(`${prefix}.trapTrigger: must be one of [${[...VALID_TRAP_TRIGGERS].join(',')}] or a valid trigger name, got ${c.trapTrigger}`);
     }
   }
 
