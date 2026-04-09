@@ -141,7 +141,7 @@ export interface TcgManifest {
 export interface TcgRaceEntry {
   id:     number;
   key:    string;
-  value:  string;
+  value?: string;  // Optional - values may come from locales instead
   color:  string;
   icon?:  string;
 }
@@ -170,12 +170,13 @@ export type TcgCardTypesJson = TcgCardTypeEntry[];
 export interface TcgRarityEntry {
   id:    number;
   key:   string;
-  value: string;
+  value?: string;  // Optional - values may come from locales instead
   color: string;
 }
 export type TcgRaritiesJson = TcgRarityEntry[];
 
 // ── Mod Metadata (mod.json) ─────────────────────────────────
+/** @deprecated mod.json is deprecated - use manifest.json for format versioning */
 export interface TcgModJson {
   id:           string;
   name:         string;

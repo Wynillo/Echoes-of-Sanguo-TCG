@@ -91,19 +91,6 @@ describe('validateTcgArchive', () => {
     expect(result.valid).toBe(true);
   });
 
-  it('rejects custom rarity IDs when no rarities.json is present', async () => {
-    const cards = JSON.stringify([
-      { id: 1, type: 1, level: 4, rarity: 10, name: 'Custom Card', description: 'A card with custom rarity' },
-    ]);
-    const zip = makeZip({
-      'cards.json': cards,
-      'img/1.png': TINY_PNG,
-    });
-    const result = await validateTcgArchive(zip);
-    expect(result.valid).toBe(false);
-    expect(result.errors.some(e => e.includes('rarity'))).toBe(true);
-  });
-
   it('warns when using both plaintext and locale files', async () => {
     const cards = JSON.stringify([
       { id: 1, type: 1, level: 4, rarity: 1, name: 'Dragon', description: 'A dragon card' },

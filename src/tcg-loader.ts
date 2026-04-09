@@ -34,10 +34,10 @@ const SUPPORTED_FORMAT_VERSION = 2;
 // ── Helpers ─────────────────────────────────────────────────
 
 /**
- * Load a split metadata file (races.json, attributes.json, etc.)
+ * Load a split metadata file (races.json, attributes.json, card_types.json) from the ZIP
  * with optional locale overrides. Returns the parsed array or undefined.
  */
-async function loadMetadataFile<T extends { key: string; value: string }>(
+async function loadMetadataFile<T extends { key: string; value?: string }>(
   zip: JSZip,
   filename: string,
   lang: string,
@@ -52,7 +52,7 @@ async function loadMetadataFile<T extends { key: string; value: string }>(
     if (localeFile) {
       const overrides: TcgLocaleOverrides = JSON.parse(await localeFile.async('string'));
       for (const entry of data) {
-        if (overrides[entry.key] !== undefined) entry.value = overrides[entry.key];
+        if (overrides[entry.key] !== undefined) (entry as { value: string }).value = overrides[entry.key];
       }
     }
     return data;
@@ -139,6 +139,14 @@ export async function loadTcgFile(
   const { cards, opponentDescriptions, imageIds, manifest, localeOverrides } = result.contents;
   const warnings = result.warnings;
 
+  // Validate format version if manifest is present
+  if (manifest?.formatVersion !== undefined) {
+    const SUPPORTED_VERSIONS = [1, 2];
+    if (!SUPPORTED_VERSIONS.includes(manifest.formatVersion)) {
+      throw new TcgFormatError(`Unsupported format version: ${manifest.formatVersion}`);
+    }
+  }
+
   // Extract images as raw ArrayBuffers (environment-agnostic — no blob URLs)
   const rawImages = new Map<number, ArrayBuffer>();
   const imageIdArr = [...imageIds];
@@ -162,7 +170,7 @@ export async function loadTcgFile(
     }
   }
 
-  // Load mod.json if present
+  // Load mod.json if present (deprecated - kept for backwards compatibility)
   let modMeta: TcgModJson | undefined;
   const modFile = zip.file('mod.json');
   if (modFile) {
@@ -261,6 +269,7 @@ export async function loadTcgFile(
   typeMeta.races = await loadMetadataFile(zip, 'races.json', lang, warnings) ?? undefined;
   typeMeta.attributes = await loadMetadataFile(zip, 'attributes.json', lang, warnings) ?? undefined;
   typeMeta.cardTypes = await loadMetadataFile(zip, 'card_types.json', lang, warnings) ?? undefined;
+  typeMeta.rarities = await loadMetadataFile(zip, 'rarities.json', lang, warnings) ?? undefined;
 
   onProgress?.(85);
 

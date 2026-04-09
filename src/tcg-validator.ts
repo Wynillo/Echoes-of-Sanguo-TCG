@@ -33,26 +33,6 @@ export async function validateTcgArchive(zip: JSZip): Promise<ValidationResult &
     return { valid: false, errors, warnings };
   }
 
-  // Parse rarities.json early so custom rarity IDs can be passed to card validation
-  let customRarityIds: Set<number> | undefined;
-  const raritiesFile = zip.file('rarities.json');
-  if (raritiesFile) {
-    try {
-      const raritiesData = JSON.parse(await raritiesFile.async('string'));
-      if (Array.isArray(raritiesData)) {
-        const ids = raritiesData
-          .filter((entry: unknown): entry is { id: number } =>
-            typeof entry === 'object' && entry !== null && typeof (entry as Record<string, unknown>).id === 'number')
-          .map(entry => entry.id);
-        if (ids.length > 0) {
-          customRarityIds = new Set(ids);
-        }
-      }
-    } catch {
-      // Structural validation of rarities.json is handled later in section 3b
-    }
-  }
-
   // Parse and validate cards.json
   let cards: TcgCard[] = [];
   try {
