@@ -139,6 +139,14 @@ export async function loadTcgFile(
   const { cards, opponentDescriptions, imageIds, manifest, localeOverrides } = result.contents;
   const warnings = result.warnings;
 
+  // Validate format version if manifest is present
+  if (manifest?.formatVersion !== undefined) {
+    const SUPPORTED_VERSIONS = [1, 2];
+    if (!SUPPORTED_VERSIONS.includes(manifest.formatVersion)) {
+      throw new TcgFormatError(`Unsupported format version: ${manifest.formatVersion}`);
+    }
+  }
+
   // Extract images as raw ArrayBuffers (environment-agnostic — no blob URLs)
   const rawImages = new Map<number, ArrayBuffer>();
   const imageIdArr = [...imageIds];
@@ -261,6 +269,7 @@ export async function loadTcgFile(
   typeMeta.races = await loadMetadataFile(zip, 'races.json', lang, warnings) ?? undefined;
   typeMeta.attributes = await loadMetadataFile(zip, 'attributes.json', lang, warnings) ?? undefined;
   typeMeta.cardTypes = await loadMetadataFile(zip, 'card_types.json', lang, warnings) ?? undefined;
+  typeMeta.rarities = await loadMetadataFile(zip, 'rarities.json', lang, warnings) ?? undefined;
 
   onProgress?.(85);
 

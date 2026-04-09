@@ -58,7 +58,7 @@ export async function validateTcgArchive(zip: JSZip): Promise<ValidationResult &
   try {
     const cardsJson = await cardsFile.async('string');
     const cardsData = JSON.parse(cardsJson);
-    const cardsResult = validateTcgCards(cardsData);
+    const cardsResult = validateTcgCards(cardsData, { validRarities: customRarityIds });
     if (!cardsResult.valid) {
       errors.push(...cardsResult.errors.map(e => `cards.json: ${e}`));
     }
