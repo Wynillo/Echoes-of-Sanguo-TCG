@@ -118,7 +118,7 @@ async function cmdInspect(args: string[]) {
     if (result.manifest.author) console.log(`  Author: ${result.manifest.author}`);
   }
   console.log(`  Cards: ${result.cards.length}`);
-  console.log(`  Images: ${result.rawImages.size}`);
+  console.log(`  Images: ${result.imageGetters.size}`);
   console.log(`  Locales: ${[...result.localeOverrides.keys()].map(k => k || '(default)').join(', ')}`);
   if (result.opponents) console.log(`  Opponents: ${result.opponents.length}`);
   if (result.fusionFormulas) console.log(`  Fusion Formulas: ${result.fusionFormulas.length}`);

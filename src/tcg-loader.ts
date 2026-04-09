@@ -1,16 +1,8 @@
-// ============================================================
-// ECHOES OF SANGUO — TCG File Loader (Pure)
-// Loads .tcg (ZIP) files and returns parsed data.
-// No side effects — no global store mutations, no browser APIs.
-// The engine bridge (js/tcg-bridge.ts) handles applying data.
-// ============================================================
-
 import JSZip from 'jszip';
-import type { TcgCard, TcgParsedCard, TcgMeta, TcgModJson, TcgOpponentDeck, TcgFusionFormula, TcgLocaleOverrides, TcgShopJson, TcgCampaignJson, TcgGameRules, TcgLoadResult } from './types.js';
+import type { TcgCard, TcgParsedCard, TcgMeta, TcgOpponentDeck, TcgFusionFormula, TcgLocaleOverrides, TcgShopJson, TcgCampaignJson, TcgGameRules, TcgLoadResult } from './types.js';
 import { validateTcgArchive, validateCampaignJson, validateFusionFormulasJson } from './tcg-validator.js';
 
 // ── Error Classes ───────────────────────────────────────────
-
 /** Thrown when a .tcg file cannot be fetched from the network. */
 export class TcgNetworkError extends Error {
   constructor(url: string, status: number) {
@@ -28,15 +20,10 @@ export class TcgFormatError extends Error {
 }
 
 // ── Constants ───────────────────────────────────────────────
-
 const SUPPORTED_FORMAT_VERSION = 2;
 
 // ── Helpers ─────────────────────────────────────────────────
-
-/**
- * Load a split metadata file (races.json, attributes.json, card_types.json) from the ZIP
- * with optional locale overrides. Returns the parsed array or undefined.
- */
+// Load a metadata file
 async function loadMetadataFile<T extends { key: string; value?: string }>(
   zip: JSZip,
   filename: string,
@@ -62,10 +49,7 @@ async function loadMetadataFile<T extends { key: string; value?: string }>(
   }
 }
 
-/**
- * Build a TcgParsedCard by merging a TcgCard with locale overrides (i18n).
- * All numeric fields are kept as-is — no enum conversion.
- */
+// Convert TcgCard + locale data into TcgParsedCard with all fields populated
 function tcgCardToParsedCard(tc: TcgCard, name: string, description: string): TcgParsedCard {
   const parsed: TcgParsedCard = {
     id:          tc.id,
@@ -91,10 +75,12 @@ function tcgCardToParsedCard(tc: TcgCard, name: string, description: string): Tc
   return parsed;
 }
 
+// ── Main Loader Function ───────────────────────────────────
 /**
- * Load a .tcg file from a URL or ArrayBuffer.
- * Returns all parsed data without any side effects.
- * The engine bridge is responsible for populating game stores.
+ * Load and validate a .tcg file from a URL or binary data, returning structured data for use in the engine.
+ * @param source URL string or binary data of the .tcg file
+ * @param options.lang Optional language code for locale overrides (e.g. 'en')    
+ * @param options.onProgress Optional callback for progress updates (0-100) 
  */
 export async function loadTcgFile(
   source: string | ArrayBuffer | Uint8Array,
@@ -136,25 +122,23 @@ export async function loadTcgFile(
     throw new TcgFormatError(`Invalid .tcg file:\n${result.errors.join('\n')}`);
   }
 
-  const { cards, opponentDescriptions, imageIds, manifest, localeOverrides } = result.contents;
+  const { cards, opponentDescriptions, imageIds, localeOverrides } = result.contents;
   const warnings = result.warnings;
 
-  // Validate format version if manifest is present
-  if (manifest?.formatVersion !== undefined) {
-    const SUPPORTED_VERSIONS = [1, 2];
-    if (!SUPPORTED_VERSIONS.includes(manifest.formatVersion)) {
-      throw new TcgFormatError(`Unsupported format version: ${manifest.formatVersion}`);
-    }
-  }
-
-  // Extract images as raw ArrayBuffers (environment-agnostic — no blob URLs)
-  const rawImages = new Map<number, ArrayBuffer>();
+  // Lazy image loaders from zip (loaded on demand, cached after first access)
+  const imageGetters = new Map<number, () => Promise<ArrayBuffer>>();
   const imageIdArr = [...imageIds];
   for (let i = 0; i < imageIdArr.length; i++) {
     const cardId = imageIdArr[i];
     const imgFile = zip.file(`img/${cardId}.png`);
     if (imgFile) {
-      rawImages.set(cardId, await imgFile.async('arraybuffer'));
+      imageGetters.set(cardId, (() => {
+        let cache: ArrayBuffer | null = null;
+        return async () => {
+          if (!cache) cache = await imgFile.async('arraybuffer');
+          return cache;
+        };
+      })());
     }
     onProgress?.(20 + Math.round(((i + 1) / imageIdArr.length) * 35));
   }
@@ -167,17 +151,6 @@ export async function loadTcgFile(
       meta = JSON.parse(await metaFile.async('string'));
     } catch {
       warnings.push('meta.json: failed to parse, skipping');
-    }
-  }
-
-  // Load mod.json if present (deprecated - kept for backwards compatibility)
-  let modMeta: TcgModJson | undefined;
-  const modFile = zip.file('mod.json');
-  if (modFile) {
-    try {
-      modMeta = JSON.parse(await modFile.async('string'));
-    } catch {
-      warnings.push('mod.json: failed to parse, skipping');
     }
   }
 
@@ -307,10 +280,8 @@ export async function loadTcgFile(
     cards,
     parsedCards,
     localeOverrides: localeOverrides ?? new Map(),
-    rawImages,
+    imageGetters,
     meta,
-    manifest,
-    modMeta,
     starterDecks,
     warnings,
     opponents,

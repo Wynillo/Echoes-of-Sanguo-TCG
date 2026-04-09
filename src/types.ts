@@ -1,5 +1,4 @@
-// ── Card Type ────────────────────────────────────────────────
-// 1=Monster (normal+effect), 2=Fusion, 3=Spell, 4=Trap, 5=Equipment
+// ── Default Card Types ───────────────────────────────────────────
 export const TCG_TYPE_MONSTER   = 1;
 export const TCG_TYPE_FUSION    = 2;
 export const TCG_TYPE_SPELL     = 3;
@@ -7,17 +6,7 @@ export const TCG_TYPE_TRAP      = 4;
 export const TCG_TYPE_EQUIPMENT = 5;
 export const TCG_TYPES = [TCG_TYPE_MONSTER, TCG_TYPE_FUSION, TCG_TYPE_SPELL, TCG_TYPE_TRAP, TCG_TYPE_EQUIPMENT] as const;
 
-// ── Spell Type ───────────────────────────────────────────────
-// 1=normal, 2=targeted, 3=fromGrave, 4=field
-export const TCG_SPELL_NORMAL      = 1;
-export const TCG_SPELL_TARGETED    = 2;
-export const TCG_SPELL_FROM_GRAVE  = 3;
-export const TCG_SPELL_FIELD       = 4;
-export const TCG_SPELL_TYPES = [TCG_SPELL_NORMAL, TCG_SPELL_TARGETED, TCG_SPELL_FROM_GRAVE, TCG_SPELL_FIELD] as const;
-
 // ── Trap Trigger ─────────────────────────────────────────────
-// 1=onAttack, 2=onOwnMonsterAttacked, 3=onOpponentSummon, 4=manual
-// 5=onOpponentSpell, 6=onAnySummon, 7=onOpponentTrap
 export const TCG_TRAP_ON_ATTACK               = 1;
 export const TCG_TRAP_ON_OWN_MONSTER_ATTACKED = 2;
 export const TCG_TRAP_ON_OPPONENT_SUMMON      = 3;
@@ -52,28 +41,40 @@ export const TCG_TRAP_TRIGGER_NAME_TO_ID: Record<string, number> = {
   onOpponentDraw:        TCG_TRAP_ON_OPPONENT_DRAW,
 };
 
+export const DEFAULT_GAME_RULES: TcgGameRules = {
+  startingLP:        8000,
+  maxLP:             99999,
+  handLimitDraw:     10,
+  handLimitEnd:      8,
+  fieldZones:        5,
+  maxDeckSize:       40,
+  maxCardCopies:     3,
+  drawPerTurn:       1,
+  handRefillSize:    5,
+  refillHandEnabled: true,
+};
 
 // ── Card Schema ──────────────────────────────────────────────
 export interface TcgCard {
   id:         number;
-  level:      number;       // 1-12
-  atk?:       number;       // optional, absent for Spells/Traps
-  def?:       number;       // optional, absent for Spells/Traps
-  rarity:     number;       // default: 1,2,4,6,8 — extensible via rarities.json
-  type:       number;       // 1-5
-  attribute?: number;       // 1-6, absent for Spells/Traps
-  race?:      number;       // positive int (base set: 1-12), absent for Spells/Traps
-  effect?:    string;       // serialized effect string
-  spirit?:    boolean;      // true if card returns to hand at end of turn
-  spellType?:   number;    // 1=normal, 2=targeted, 3=fromGrave, 4=field
-  trapTrigger?: number;    // 1=onAttack, 2=onOwnMonsterAttacked, 3=onOpponentSummon, 4=manual, 5=onOpponentSpell, 6=onAnySummon, 7=onOpponentTrap, 8=onOppCardEffect, 9=onOpponentDraw
-  target?:      string;    // targeting hint: 'ownMonster', 'oppMonster', etc.
-  atkBonus?:    number;    // Equipment: ATK bonus applied to equipped monster
-  defBonus?:    number;    // Equipment: DEF bonus applied to equipped monster
-  equipReqRace?: number;  // Equipment: required race for target monster
-  equipReqAttr?: number;  // Equipment: required attribute (1-6) for target monster
-  name?:        string;    // plaintext name (recommended: use locales/)
-  description?: string;    // plaintext description (recommended: use locales/)
+  level:      number;       
+  atk?:       number;       
+  def?:       number;       
+  rarity:     number;       
+  type:       number;       
+  attribute?: number;      
+  race?:      number;
+  effect?:    string;
+  spirit?:    boolean;
+  spellType?:   number;
+  trapTrigger?: number;
+  target?:      string;
+  atkBonus?:    number;
+  defBonus?:    number;
+  equipReqRace?: number;
+  equipReqAttr?: number;
+  name?:        string;
+  description?: string;
 }
 
 // ── Card Definition (localized) ──────────────────────────────
@@ -87,24 +88,24 @@ export interface TcgCardDefinition {
 // Wire-format ints are left as-is; the engine bridge handles int→enum/string conversion.
 export interface TcgParsedCard {
   id:            number;
-  name:          string;     // from TcgCardDefinition for the requested locale
-  description:   string;     // from TcgCardDefinition for the requested locale
-  type:          number;     // TCG_TYPE_* — same numeric value as CardType enum
+  name:          string;
+  description:   string;
+  type:          number;
   level:         number;
-  rarity:        number;     // TCG_RARITY_* — extensible via rarities.json
+  rarity:        number;
   atk?:          number;
   def?:          number;
-  attribute?:    number;     // TCG_ATTR_* — same numeric value as Attribute enum
-  race?:         number;     // TCG_RACE_* — same numeric value as Race enum
-  effect?:       string;     // raw serialized effect string (opaque at format level)
-  spirit?:       boolean;    // true if card returns to hand at end of turn
-  spellType?:    number;     // 1=normal, 2=targeted, 3=fromGrave, 4=field
-  trapTrigger?:  number;     // 1=onAttack, 2=onOwnMonsterAttacked, 3=onOpponentSummon, 4=manual, 5=onOpponentSpell, 6=onAnySummon, 7=onOpponentTrap, 8=onOppCardEffect, 9=onOpponentDraw
-  target?:       string;     // targeting hint: 'ownMonster', 'oppMonster', etc.
+  attribute?:    number;
+  race?:         number;
+  effect?:       string;
+  spirit?:       boolean;
+  spellType?:    number;
+  trapTrigger?:  number;
+  target?:       string;
   atkBonus?:     number;
   defBonus?:     number;
-  equipReqRace?: number;     // int race value, not enum
-  equipReqAttr?: number;     // int attribute value, not enum
+  equipReqRace?: number;
+  equipReqAttr?: number;
 }
 
 // ── Opponent Deck (opponents/opponent_deck_N.json inside base.tcg) ──
@@ -112,12 +113,12 @@ export interface TcgOpponentDeck {
   id:        number;
   name:      string;
   title:     string;
-  race:      number;    // TCG int (positive), converted to Race enum by loader
+  race:      number;
   flavor:    string;
   coinsWin:  number;
   coinsLoss: number;
-  deckIds:   number[];  // numeric card IDs, converted to string IDs by loader
-  behavior?: string;    // AI behavior profile name (e.g. 'aggressive', 'defensive')
+  deckIds:   number[];
+  behavior?: string;
 }
 
 // ── Opponent Description (localized) ────────────────────────────
@@ -141,7 +142,7 @@ export interface TcgManifest {
 export interface TcgRaceEntry {
   id:     number;
   key:    string;
-  value?: string;  // Optional - values may come from locales instead
+  value?: string;
   color:  string;
   icon?:  string;
 }
@@ -170,43 +171,22 @@ export type TcgCardTypesJson = TcgCardTypeEntry[];
 export interface TcgRarityEntry {
   id:    number;
   key:   string;
-  value?: string;  // Optional - values may come from locales instead
+  value?: string;
   color: string;
 }
 export type TcgRaritiesJson = TcgRarityEntry[];
 
-// ── Mod Metadata (mod.json) ─────────────────────────────────
-/** @deprecated mod.json is deprecated - use manifest.json for format versioning */
-export interface TcgModJson {
-  id:           string;
-  name:         string;
-  version:      string;
-  author:       string;
-  description:  string;
-  type:         string;      // 'base' | 'expansion' | 'mod'
-  entrypoint:   string;      // e.g. 'base.tcg'
-  importMethods?: {
-    link?: string;           // download URL
-    file?: string;           // local filename
-  };
-  compatibility?: {
-    minEngineVersion?: string;
-    formatVersion?: number;
-  };
-}
-
 // ── Locale overrides ─────────────────────────────────────────
-// key → translated value
 export type TcgLocaleOverrides = Record<string, string>;
 
-// ── Fusion Formulas (type-based, Forbidden Memories style) ──
+// ── Fusion Formulas ──────────────────────────────────────────
 export interface TcgFusionFormula {
   id:         string;
-  comboType:  string;    // 'race+race' | 'race+attr' | 'attr+attr'
+  comboType:  string;
   operand1:   number;
   operand2:   number;
   priority:   number;
-  resultPool: number[];  // numeric card IDs (converted to string by loader)
+  resultPool: number[];
 }
 
 export interface TcgMeta {
@@ -249,10 +229,10 @@ export interface TcgCardPool {
 
 export interface TcgPackDef {
   id: string;
-  name?: string;        // direct name
-  desc?: string;        // direct description
-  nameKey?: string;     // locale key for name (i18n)
-  descKey?: string;     // locale key for description (i18n)
+  name?: string;
+  desc?: string;
+  nameKey?: string;
+  descKey?: string;
   price: number;
   icon: string;
   color: string;
@@ -265,7 +245,7 @@ export interface TcgPackDef {
 export interface TcgShopJson {
   packs: TcgPackDef[];
   currency?: { nameKey: string; icon: string };
-  backgrounds?: Record<string, string>;  // chapter key -> path within TCG archive
+  backgrounds?: Record<string, string>;
 }
 
 // ── Campaign JSON ────────────────────────────────────────────
@@ -328,32 +308,18 @@ export interface TcgGameRules {
   refillHandEnabled: boolean;  // whether hand-refill mechanic is active
 }
 
-export const DEFAULT_GAME_RULES: TcgGameRules = {
-  startingLP:        8000,
-  maxLP:             99999,
-  handLimitDraw:     10,
-  handLimitEnd:      8,
-  fieldZones:        5,
-  maxDeckSize:       40,
-  maxCardCopies:     3,
-  drawPerTurn:       1,
-  handRefillSize:    5,
-  refillHandEnabled: true,
-};
-
 // ── Load result ──────────────────────────────────────────────
 export interface TcgLoadResult {
   cards:                TcgCard[];
   parsedCards:          TcgParsedCard[];
-  localeOverrides:      Map<string, Record<string, string>>;  // lang -> { key -> translated value }
-  rawImages:            Map<number, ArrayBuffer>;           // card id -> raw PNG bytes (NOT blob URLs)
+  localeOverrides:      Map<string, Record<string, string>>;
+  imageGetters:         Map<number, () => Promise<ArrayBuffer>>;
   meta?:                TcgMeta;
   manifest?:            TcgManifest;
-  modMeta?:             TcgModJson;                        // mod.json metadata
-  starterDecks?:        Record<string, number[]>;          // standalone starterDecks.json (faction -> card IDs)
+  starterDecks?:        Record<string, number[]>;
   warnings:             string[];
   opponents?:           TcgOpponentDeck[];
-  opponentDescriptions?: Map<string, TcgOpponentDescription[]>;  // locale -> descriptions
+  opponentDescriptions?: Map<string, TcgOpponentDescription[]>;
   typeMeta?:            {
     races?:      TcgRacesJson;
     attributes?: TcgAttributesJson;
@@ -362,7 +328,7 @@ export interface TcgLoadResult {
   };
   rules?:               TcgGameRules;
   shopData?:            TcgShopJson;
-  rawShopBackgrounds?:  Map<string, ArrayBuffer>;    // background key -> raw image bytes
+  rawShopBackgrounds?:  Map<string, ArrayBuffer>;
   campaignData?:        TcgCampaignJson;
   fusionFormulas?:      TcgFusionFormula[];
 }

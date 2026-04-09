@@ -1,5 +1,5 @@
 import type JSZip from 'jszip';
-import type { TcgCard, TcgOpponentDescription, TcgManifest, ValidationResult } from './types.js';
+import type { TcgCard, TcgOpponentDescription, ValidationResult } from './types.js';
 import { validateTcgCards } from './card-validator.js';
 import { validateTcgOpponentDescriptions } from './opp-desc-validator.js';
 
@@ -14,7 +14,6 @@ export interface TcgArchiveContents {
   opponentDescriptions: Map<string, TcgOpponentDescription[]>;  // lang (or '') -> opponent descriptions
   imageIds: Set<number>;                            // card ids that have images
   missingImageIds: number[];                        // card ids without images
-  manifest?: TcgManifest;                           // parsed manifest.json if present
   localeOverrides?: Map<string, Record<string, string>>;  // lang -> key->value for i18n mode
 }
 
@@ -157,28 +156,9 @@ export async function validateTcgArchive(zip: JSZip): Promise<ValidationResult &
     }
   }
 
-  // 7. Validate manifest.json (optional)
-  let manifest: TcgManifest | undefined;
-  const manifestFile = zip.file('manifest.json');
-  if (manifestFile) {
-    try {
-      const manifestJson = await manifestFile.async('string');
-      const parsed = JSON.parse(manifestJson);
-      if (typeof parsed.formatVersion !== 'number' || parsed.formatVersion <= 0) {
-        errors.push('manifest.json: formatVersion must be a positive number');
-      } else {
-        manifest = parsed as TcgManifest;
-      }
-    } catch (e) {
-      errors.push(`manifest.json: failed to parse JSON: ${e instanceof Error ? e.message : e}`);
-    }
-  } else {
-    warnings.push('manifest.json not found — consider adding one for format versioning');
-  }
-
   const valid = errors.length === 0;
   const contents: TcgArchiveContents | undefined = valid
-    ? { cards, opponentDescriptions, imageIds, missingImageIds, manifest, localeOverrides }
+    ? { cards, opponentDescriptions, imageIds, missingImageIds, localeOverrides }
     : undefined;
 
   return { valid, errors, warnings, contents };
