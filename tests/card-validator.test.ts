@@ -80,8 +80,8 @@ describe('validateTcgCards', () => {
     expect(result.errors.some(e => e.includes('effect') && e.includes('string'))).toBe(true);
   });
 
-  it('validates rarity field', () => {
-    const cards = [{ id: 1, type: 1, level: 4, rarity: 3 }];
+  it('validates rarity field must be positive integer', () => {
+    const cards = [{ id: 1, type: 1, level: 4, rarity: -1 }];
     const result = validateTcgCards(cards);
     expect(result.valid).toBe(false);
     expect(result.errors.some(e => e.includes('rarity'))).toBe(true);
@@ -123,16 +123,9 @@ describe('validateTcgCards', () => {
     expect(result.errors.some(e => e.includes('trapTrigger'))).toBe(true);
   });
 
-  it('accepts custom rarity IDs when validRarities is provided', () => {
+  it('accepts any positive integer as rarity', () => {
     const cards = [{ id: 1, type: 1, level: 4, rarity: 10 }];
-    const result = validateTcgCards(cards, { validRarities: new Set([1, 2, 4, 6, 8, 10, 12]) });
+    const result = validateTcgCards(cards);
     expect(result.valid).toBe(true);
-  });
-
-  it('rejects default rarity IDs when custom validRarities excludes them', () => {
-    const cards = [{ id: 1, type: 1, level: 4, rarity: 1 }];
-    const result = validateTcgCards(cards, { validRarities: new Set([10, 12]) });
-    expect(result.valid).toBe(false);
-    expect(result.errors.some(e => e.includes('rarity'))).toBe(true);
   });
 });

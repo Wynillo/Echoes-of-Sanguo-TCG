@@ -3,9 +3,8 @@ import { TCG_TYPES, TCG_TYPE_SPELL, TCG_TYPE_TRAP, TCG_TYPE_MONSTER, TCG_TYPE_FU
 const VALID_TYPES       = new Set(TCG_TYPES);
 const VALID_SPELL_TYPES = new Set(TCG_SPELL_TYPES);
 const VALID_TRAP_TRIGGERS = new Set(TCG_TRAP_TRIGGERS);
-const DEFAULT_VALID_RARITIES = new Set([1, 2, 4, 6, 8]);
 
-function validateSingleCard(card: unknown, index: number, validRarities: Set<number> = DEFAULT_VALID_RARITIES): string[] {
+function validateSingleCard(card: unknown, index: number): string[] {
   const errors: string[] = [];
   const prefix = `cards[${index}]`;
 
@@ -93,12 +92,10 @@ function validateSingleCard(card: unknown, index: number, validRarities: Set<num
     }
   }
 
-  // rarity: positive int (extensible), validated against validRarities set
+  // rarity: positive int (extensible)
   if (c.rarity !== undefined && c.rarity !== null) {
     if (typeof c.rarity !== 'number' || !Number.isInteger(c.rarity) || c.rarity < 1) {
       errors.push(`${prefix}.rarity:  must be a positive integer, got ${c.rarity}`);
-    } else if (!validRarities.has(c.rarity)) {
-      errors.push(`${prefix}.rarity: invalid rarity ${c.rarity} (not in valid set)`);
     }
   }
 
@@ -166,17 +163,11 @@ function validateSingleCard(card: unknown, index: number, validRarities: Set<num
 /**
  * Validate an array of TcgCard objects from cards.json
  */
-export interface ValidateTcgCardsOptions {
-  validRarities?: Set<number>;
-}
-
 export function validateTcgCards(
-  data: unknown,
-  options?: ValidateTcgCardsOptions
+  data: unknown
 ): ValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
-  const validRarities = options?.validRarities ?? DEFAULT_VALID_RARITIES;
 
   if (!Array.isArray(data)) {
     return { valid: false, errors: ['cards.json must contain a JSON array'], warnings };
@@ -189,7 +180,7 @@ export function validateTcgCards(
   // Validate each card
   const seenIds = new Set<number>();
   for (let i = 0; i < data.length; i++) {
-    const cardErrors = validateSingleCard(data[i], i, validRarities);
+    const cardErrors = validateSingleCard(data[i], i);
     errors.push(...cardErrors);
 
     // Check for duplicate IDs
