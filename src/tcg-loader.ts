@@ -34,10 +34,10 @@ const SUPPORTED_FORMAT_VERSION = 2;
 // ── Helpers ─────────────────────────────────────────────────
 
 /**
- * Load a split metadata file (races.json, attributes.json, etc.)
+ * Load a split metadata file (races.json, attributes.json, card_types.json) from the ZIP
  * with optional locale overrides. Returns the parsed array or undefined.
  */
-async function loadMetadataFile<T extends { key: string; value: string }>(
+async function loadMetadataFile<T extends { key: string; value?: string }>(
   zip: JSZip,
   filename: string,
   lang: string,
@@ -52,7 +52,7 @@ async function loadMetadataFile<T extends { key: string; value: string }>(
     if (localeFile) {
       const overrides: TcgLocaleOverrides = JSON.parse(await localeFile.async('string'));
       for (const entry of data) {
-        if (overrides[entry.key] !== undefined) entry.value = overrides[entry.key];
+        if (overrides[entry.key] !== undefined) (entry as { value: string }).value = overrides[entry.key];
       }
     }
     return data;

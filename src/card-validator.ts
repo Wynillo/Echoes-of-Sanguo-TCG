@@ -94,7 +94,7 @@ function validateSingleCard(card: unknown, index: number): string[] {
 
   // rarity: positive int (extensible)
   if (c.rarity !== undefined && c.rarity !== null) {
-    if (typeof c.race !== 'number' || !Number.isInteger(c.race) || c.race < 1) {
+    if (typeof c.rarity !== 'number' || !Number.isInteger(c.rarity) || c.rarity < 1) {
       errors.push(`${prefix}.rarity:  must be a positive integer, got ${c.rarity}`);
     }
   }
