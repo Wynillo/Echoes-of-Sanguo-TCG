@@ -176,6 +176,7 @@ export interface TcgRarityEntry {
 export type TcgRaritiesJson = TcgRarityEntry[];
 
 // ── Mod Metadata (mod.json) ─────────────────────────────────
+/** @deprecated mod.json is deprecated - use manifest.json for format versioning */
 export interface TcgModJson {
   id:           string;
   name:         string;

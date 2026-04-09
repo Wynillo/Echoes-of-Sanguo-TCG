@@ -162,7 +162,7 @@ export async function loadTcgFile(
     }
   }
 
-  // Load mod.json if present
+  // Load mod.json if present (deprecated - kept for backwards compatibility)
   let modMeta: TcgModJson | undefined;
   const modFile = zip.file('mod.json');
   if (modFile) {
