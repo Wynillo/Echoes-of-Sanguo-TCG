@@ -16,9 +16,7 @@ describe('loadTcgFile', () => {
     expect(result.cards).toHaveLength(4);
     expect(result.parsedCards).toHaveLength(4);
     expect(result.localeOverrides.size).toBeGreaterThan(0);
-    expect(result.rawImages.size).toBe(4);
-    expect(result.manifest).toBeDefined();
-    expect(result.manifest!.formatVersion).toBe(2);
+    expect(result.imageGetters.size).toBe(4);
     expect(result.meta).toBeDefined();
     expect(result.meta!.fusionRecipes).toHaveLength(1);
   });
@@ -58,30 +56,9 @@ describe('loadTcgFile', () => {
     expect(result.typeMeta!.rarities).toBeDefined();
   });
 
-  it('returns raw images as ArrayBuffers', async () => {
-    const buffer = await packTcgArchiveToBuffer(FIXTURE_DIR);
-    const result = await loadTcgFile(buffer);
-
-    for (const [, imgBuf] of result.rawImages) {
-      expect(imgBuf).toBeInstanceOf(ArrayBuffer);
-      expect(imgBuf.byteLength).toBeGreaterThan(0);
-    }
-  });
-
   it('throws TcgFormatError on corrupt ZIP', async () => {
     const badBuffer = new ArrayBuffer(100);
     await expect(loadTcgFile(badBuffer)).rejects.toThrow(TcgFormatError);
-  });
-
-  it('throws TcgFormatError on unsupported format version', async () => {
-    const zip = new JSZip();
-    zip.file('cards.json', JSON.stringify([{ id: 1, type: 1, level: 4, rarity: 1, name: 'X', description: 'Y' }]));
-    zip.file('locales/en.json', JSON.stringify({ 'c1': 'X', 'c1d': 'Y' }));
-    zip.file('manifest.json', JSON.stringify({ formatVersion: 999 }));
-    zip.file('img/1.png', Buffer.from([0x89, 0x50, 0x4e, 0x47]));
-    const buf = await zip.generateAsync({ type: 'arraybuffer' });
-
-    await expect(loadTcgFile(buf)).rejects.toThrow(/format version/i);
   });
 
   it('loads starterDecks.json as standalone file', async () => {

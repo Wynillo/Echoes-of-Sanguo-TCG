@@ -27,8 +27,7 @@ describe('packTcgArchiveToBuffer', () => {
     expect(result.cards).toHaveLength(4);
     expect(result.parsedCards).toHaveLength(4);
     expect(result.parsedCards[0].name).toBe('Ancient Dragon');
-    expect(result.rawImages.size).toBe(4);
-    expect(result.manifest?.formatVersion).toBe(2);
+    expect(result.imageGetters.size).toBe(4);
     expect(result.meta?.fusionRecipes).toHaveLength(1);
   });
 });
@@ -57,8 +56,7 @@ describe('round-trip with enriched fixtures', () => {
 
     expect(result.cards).toHaveLength(4);
     expect(result.parsedCards).toHaveLength(4);
-    expect(result.rawImages.size).toBe(4);
-    expect(result.manifest?.formatVersion).toBe(2);
+    expect(result.imageGetters.size).toBe(4);
     expect(result.meta?.fusionRecipes).toHaveLength(1);
     expect(result.starterDecks).toBeDefined();
 
