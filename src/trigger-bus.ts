@@ -1,8 +1,3 @@
-// ============================================================
-// ECHOES OF SANGUO — TriggerBus
-// Lightweight event emitter for extensible trigger hooks.
-// Modders subscribe via addTriggerHook / emitTrigger on the mod API.
-// ============================================================
 import type { EffectContext, CardData, Owner } from './types.js';
 import type { FieldCard } from './field.js';
 

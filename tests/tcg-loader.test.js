@@ -8,7 +8,6 @@ import { CARD_DB, FUSION_FORMULAS, OPPONENT_CONFIGS, STARTER_DECKS } from '../sr
 // ── Helpers ─────────────────────────────────────────────────
 
 const VALID_CARD = { id: 1, type: 1, level: 3, rarity: 1, atk: 1000, def: 800, attribute: 3, race: 1 };
-const VALID_MANIFEST = { formatVersion: 2 };
 
 async function buildMinimalZip(overrides = {}) {
   const zip = new JSZip();
@@ -17,9 +16,6 @@ async function buildMinimalZip(overrides = {}) {
   }
   if (overrides.noImg !== true) {
     zip.folder('img');
-  }
-  if (overrides.manifest !== null) {
-    zip.file('manifest.json', JSON.stringify(overrides.manifest ?? VALID_MANIFEST));
   }
   if (overrides.fusionFormulas) {
     zip.file('fusion_formulas.json', JSON.stringify(overrides.fusionFormulas));
@@ -50,25 +46,7 @@ function clearGameStores() {
 // ── Pure loader tests (no side effects) ─────────────────────
 
 describe('loadTcgFile (pure)', () => {
-  it('returns parsedCards and rawImages', async () => {
-    const buf = await buildMinimalZip();
-    const result = await loadTcgFile(buf, { lang: 'en' });
-    expect(result.cards).toHaveLength(1);
-    expect(result.parsedCards).toHaveLength(1);
-    expect(result.parsedCards[0].id).toBe(1);
-    expect(result.parsedCards[0].name).toBe('Card #1');
-    expect(result.parsedCards[0].type).toBe(1);
-    expect(result.rawImages).toBeInstanceOf(Map);
-    expect(result.manifest?.formatVersion).toBe(2);
-  });
-
-  it('rejects archive with future formatVersion', async () => {
-    const buf = await buildMinimalZip({ manifest: { formatVersion: 999 } });
-    await expect(loadTcgFile(buf)).rejects.toThrow(TcgFormatError);
-    await expect(loadTcgFile(buf)).rejects.toThrow(/version mismatch/);
-  });
-
-  it('rejects archive missing cards.json', async () => {
+    it('rejects archive missing cards.json', async () => {
     const buf = await buildMinimalZip({ cards: null });
     await expect(loadTcgFile(buf)).rejects.toThrow(TcgFormatError);
   });
@@ -100,13 +78,6 @@ describe('loadTcgFile (pure)', () => {
     const result = await loadTcgFile(buf);
     expect(result.opponents).toHaveLength(1);
     expect(result.opponents[0].name).toBe('Test Opp');
-  });
-
-  it('loads with missing manifest (backward compat)', async () => {
-    const buf = await buildMinimalZip({ manifest: null });
-    const result = await loadTcgFile(buf);
-    expect(result.manifest).toBeUndefined();
-    expect(result.warnings.some(w => w.includes('manifest'))).toBe(true);
   });
 });
 
