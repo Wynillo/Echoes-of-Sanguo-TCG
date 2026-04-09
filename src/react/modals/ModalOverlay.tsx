@@ -13,8 +13,10 @@ import { CoinTossModal }   from './CoinTossModal.js';
 import { GauntletTransitionModal } from './GauntletTransitionModal.js';
 import { HowToPlayModal } from './HowToPlayModal.js';
 import { FusionConfirmModal } from './FusionConfirmModal.js';
+import { ConfirmModal } from './ConfirmModal.js';
+import { AlertModal } from './AlertModal.js';
 
-const NON_DISMISSIBLE = new Set(['trap-prompt', 'grave-select', 'deck-select', 'coin-toss', 'gauntlet-transition', 'fusion-confirm']);
+const NON_DISMISSIBLE = new Set(['trap-prompt', 'grave-select', 'deck-select', 'coin-toss', 'gauntlet-transition', 'fusion-confirm', 'confirm', 'alert']);
 
 const MODAL_LABELS: Record<string, string> = {
   'card-detail': 'Card Details',
@@ -29,6 +31,8 @@ const MODAL_LABELS: Record<string, string> = {
   'gauntlet-transition': 'Gauntlet',
   'how-to-play': 'How to Play',
   'fusion-confirm': 'Fusion Preview',
+  'confirm': 'Confirm',
+  'alert': 'Notice',
 };
 
 export function ModalOverlay() {
@@ -77,6 +81,8 @@ export function ModalOverlay() {
       {modal.type === 'gauntlet-transition' && <GauntletTransitionModal modal={modal} />}
       {modal.type === 'how-to-play' && <HowToPlayModal />}
       {modal.type === 'fusion-confirm' && <FusionConfirmModal modal={modal} />}
+      {modal.type === 'confirm'       && <ConfirmModal modal={modal} />}
+      {modal.type === 'alert'         && <AlertModal   modal={modal} />}
     </div>
   );
 }

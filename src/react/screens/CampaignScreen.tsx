@@ -4,6 +4,7 @@ import type { TFunction }   from 'i18next';
 import { useScreen }        from '../contexts/ScreenContext.js';
 import { useCampaign }      from '../contexts/CampaignContext.js';
 import { useGame }           from '../contexts/GameContext.js';
+import { useModal }          from '../contexts/ModalContext.js';
 import { OPPONENT_CONFIGS }  from '../../cards.js';
 import type { CampaignNode, Chapter } from '../../campaign-types.js';
 import RaceIcon from '../components/RaceIcon.js';
@@ -39,6 +40,7 @@ export default function CampaignScreen() {
   const { navigateTo } = useScreen();
   const { campaignData, progress, isNodeUnlocked, completeNode, getOpponentForNode, setPendingDuel } = useCampaign();
   const { startGame } = useGame();
+  const { openModal } = useModal();
   const [dialogueNode, setDialogueNode] = useState<CampaignNode | null>(null);
 
   const chapters = campaignData.chapters;
@@ -136,42 +138,44 @@ export default function CampaignScreen() {
     switch (node.type) {
       case 'duel': {
         if (node.gauntlet && node.gauntlet.length > 0) {
-          const ok = window.confirm(
-            t('campaign.gauntlet_warning', 'This is a gauntlet: {{count}} consecutive duels. You cannot save between fights. Continue?', { count: node.gauntlet.length })
-          );
-          if (!ok) return;
-          const firstOppId = node.gauntlet[0];
-          const firstCfg = (OPPONENT_CONFIGS as import('../../types.js').OpponentConfig[]).find(c => c.id === firstOppId);
-          if (!firstCfg) {
-            console.error(`[CampaignScreen] Failed to find opponent config for gauntlet node "${node.id}", opponent ${firstOppId}`);
-            window.alert(t('campaign.error_no_opponent', 'Cannot start duel: opponent configuration not found. Please check that the campaign data is loaded correctly.'));
-            return;
-          }
-          setPendingDuel({
-            nodeId: node.id,
-            completeOnLoss: node.completeOnLoss,
-            rewards: node.rewards,
-            rewardConfig: node.rewardConfig,
-            postDialogue: node.postDialogue ?? null,
-            gauntletOpponents: node.gauntlet,
-            gauntletIndex: 0,
+          openModal({
+            type: 'confirm',
+            message: t('campaign.gauntlet_warning', 'This is a gauntlet: {{count}} consecutive duels. You cannot save between fights. Continue?', { count: node.gauntlet.length }),
+            onConfirm: () => {
+              const firstOppId = node.gauntlet![0];
+              const firstCfg = (OPPONENT_CONFIGS as import('../../types.js').OpponentConfig[]).find(c => c.id === firstOppId);
+              if (!firstCfg) {
+                console.error(`[CampaignScreen] Failed to find opponent config for gauntlet node "${node.id}", opponent ${firstOppId}`);
+                openModal({ type: 'alert', message: t('campaign.error_no_opponent', 'Cannot start duel: opponent configuration not found. Please check that the campaign data is loaded correctly.') });
+                return;
+              }
+              setPendingDuel({
+                nodeId: node.id,
+                completeOnLoss: node.completeOnLoss,
+                rewards: node.rewards,
+                rewardConfig: node.rewardConfig,
+                postDialogue: node.postDialogue ?? null,
+                gauntletOpponents: node.gauntlet!,
+                gauntletIndex: 0,
+              });
+              if (node.preDialogue && node.preDialogue.dialogue.length > 0) {
+                navigateTo('dialogue', {
+                  scene: node.preDialogue,
+                  nextScreen: 'game',
+                  nextScreenData: { campaignOpponentConfig: firstCfg },
+                });
+              } else {
+                startGame(firstCfg);
+                navigateTo('game');
+              }
+            },
           });
-          if (node.preDialogue && node.preDialogue.dialogue.length > 0) {
-            navigateTo('dialogue', {
-              scene: node.preDialogue,
-              nextScreen: 'game',
-              nextScreenData: { campaignOpponentConfig: firstCfg },
-            });
-          } else {
-            startGame(firstCfg);
-            navigateTo('game');
-          }
         } else {
           // Standard single duel
           const opponent = getOpponentForNode(node.id);
           if (!opponent) {
             console.error(`[CampaignScreen] Failed to find opponent config for duel node "${node.id}". Node data:`, node);
-            window.alert(t('campaign.error_no_opponent', 'Cannot start duel: opponent configuration not found. Please check that the campaign data is loaded correctly.'));
+            openModal({ type: 'alert', message: t('campaign.error_no_opponent', 'Cannot start duel: opponent configuration not found. Please check that the campaign data is loaded correctly.') });
             return;
           }
           setPendingDuel({
