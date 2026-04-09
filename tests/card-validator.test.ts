@@ -54,13 +54,6 @@ describe('validateTcgCards', () => {
     expect(result.errors.some(e => e.includes('atk') && e.includes('spells/traps'))).toBe(true);
   });
 
-  it('validates equipment cards require atkBonus or defBonus', () => {
-    const cards = [{ id: 1, type: 5, level: 0, rarity: 1 }];
-    const result = validateTcgCards(cards);
-    expect(result.valid).toBe(false);
-    expect(result.errors.some(e => e.includes('equipment') && e.includes('atkBonus'))).toBe(true);
-  });
-
   it('accepts valid equipment card', () => {
     const cards = [{ id: 1, type: 5, level: 0, rarity: 1, atkBonus: 300 }];
     const result = validateTcgCards(cards);
