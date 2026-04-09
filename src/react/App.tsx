@@ -46,7 +46,7 @@ function SaveErrorToast() {
   }, []);
   if (!visible) return null;
   return (
-    <div role="alert" aria-live="assertive" style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', background: '#501414', color: '#ff8888', padding: '12px 24px', borderRadius: 4, zIndex: 10000, fontFamily: 'monospace', fontSize: '0.9rem', border: '1px solid #802020', display: 'flex', alignItems: 'center', gap: 8 }}>
+    <div role="alert" aria-live="assertive" className="save-error-toast">
       <span aria-hidden="true">⚠</span>
       {t('error.save_failed')}
     </div>
@@ -58,10 +58,10 @@ function MigrationWarning() {
   const [show, setShow] = useState(() => Progression.hasMigrationPending());
   if (!show) return null;
   return (
-    <div style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.8)', zIndex: 10001 }}>
-      <div role="alertdialog" aria-modal="true" aria-label={t('migration.warning_title')} style={{ background: '#0e1c14', border: '2px solid #2a7848', padding: '2rem', maxWidth: '28rem', textAlign: 'center', fontFamily: 'monospace', color: '#d0e8d8' }}>
-        <h2 style={{ color: '#c8a848', marginBottom: '1rem' }}>{t('migration.warning_title')}</h2>
-        <p style={{ fontSize: '0.875rem', lineHeight: 1.5, marginBottom: '1.5rem' }}>{t('migration.warning_text')}</p>
+    <div className="migration-overlay">
+      <div role="alertdialog" aria-modal="true" aria-label={t('migration.warning_title')} className="migration-dialog">
+        <h2>{t('migration.warning_title')}</h2>
+        <p>{t('migration.warning_text')}</p>
         <button className="btn-primary" onClick={() => { Progression.clearMigrationPending(); setShow(false); }}>
           {t('migration.dismiss')}
         </button>

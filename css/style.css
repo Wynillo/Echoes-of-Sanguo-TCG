@@ -952,8 +952,16 @@ button { cursor: pointer; border: none; font-family: inherit; transition: none; 
 .card-select-list { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; max-height: 300px; overflow-y: auto; padding: 8px; }
 
 #cardlist-modal {
+  position: relative;
   max-width: 95vw; max-height: 90vh;
   overflow-y: auto;
+}
+#cardlist-close-btn {
+  position: absolute; top: 16px; right: 16px;
+  font-size: 0.8rem; padding: 6px 12px;
+}
+#cardlist-close-btn-bottom {
+  font-size: 0.8rem; padding: 6px 12px; margin-top: 10px;
 }
 #cardlist-content { margin-bottom: 10px; }
 .cardlist-group-title {
@@ -1485,4 +1493,35 @@ button { cursor: pointer; border: none; font-family: inherit; transition: none; 
   .zone-row { gap: 2px; }
   #player-hand .hand-card            { margin-right: -14px; }
   #player-hand .hand-card:last-child { margin-right: 0; }
+}
+
+.save-error-toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+  background: #501414; color: #ff8888;
+  padding: 12px 24px; border-radius: 4px;
+  z-index: 10000; font-family: monospace; font-size: var(--font-sm);
+  border: 1px solid #802020;
+  display: flex; align-items: center; gap: 8px;
+}
+
+.migration-overlay {
+  position: fixed; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,0.8); z-index: 10001;
+}
+.migration-dialog {
+  background: var(--panel); border: 2px solid var(--border-glow);
+  padding: 2rem; max-width: 28rem; text-align: center;
+  font-family: monospace; color: var(--text);
+}
+.migration-dialog h2 { color: var(--gold); margin-bottom: 1rem; }
+.migration-dialog p  { font-size: var(--font-sm); line-height: 1.5; margin-bottom: 1.5rem; }
+
+.offline-indicator {
+  position: fixed; bottom: 8px; right: 8px;
+  background: #1a1a2e; color: #8899aa;
+  padding: 4px 12px; border-radius: 4px;
+  font-family: monospace; font-size: 0.75rem;
+  border: 1px solid #334; z-index: 10000;
+  letter-spacing: 1px; text-transform: uppercase;
 }

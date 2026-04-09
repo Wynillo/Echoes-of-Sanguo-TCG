@@ -14,7 +14,9 @@ export type ModalState =
   | { type: 'coin-toss'; playerGoesFirst: boolean; resolve: () => void }
   | { type: 'gauntlet-transition'; duelIndex: number; totalDuels: number; nextOpponentName: string; resolve: () => void }
   | { type: 'how-to-play' }
-  | { type: 'fusion-confirm'; handCard: CardData; fieldCard: CardData; resultCard: CardData; onConfirm: () => void };
+  | { type: 'fusion-confirm'; handCard: CardData; fieldCard: CardData; resultCard: CardData; onConfirm: () => void }
+  | { type: 'confirm'; message: string; onConfirm: () => void }
+  | { type: 'alert'; message: string };
 
 interface ModalCtx {
   modal: ModalState;

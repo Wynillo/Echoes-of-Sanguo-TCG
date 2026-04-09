@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useScreen }      from '../contexts/ScreenContext.js';
 import { useProgression } from '../contexts/ProgressionContext.js';
 import { useCampaign }    from '../contexts/CampaignContext.js';
+import { useModal }       from '../contexts/ModalContext.js';
 import { Progression }    from '../../progression.js';
 import type { SlotId, SlotMeta } from '../../progression.js';
 import styles from './SaveSlotScreen.module.css';
@@ -11,6 +12,7 @@ export default function SaveSlotScreen() {
   const { screenData, navigateTo } = useScreen();
   const { refresh, loadDeck }   = useProgression();
   const { refreshCampaignProgress } = useCampaign();
+  const { openModal } = useModal();
   const { t } = useTranslation();
 
   const mode = (screenData?.slotMode as 'new' | 'load') ?? 'new';
@@ -32,9 +34,20 @@ export default function SaveSlotScreen() {
     } else {
       // New game mode
       if (!meta.empty) {
-        const ok = window.confirm(t('slots.confirm_overwrite'));
-        if (!ok) return;
-        Progression.deleteSlot(meta.slot);
+        openModal({
+          type: 'confirm',
+          message: t('slots.confirm_overwrite'),
+          onConfirm: () => {
+            Progression.deleteSlot(meta.slot);
+            Progression.selectSlot(meta.slot);
+            Progression.resetAll();
+            Progression.init();
+            refresh();
+            refreshCampaignProgress();
+            navigateTo('starter');
+          },
+        });
+        return;
       }
       Progression.selectSlot(meta.slot);
       Progression.resetAll();
@@ -47,10 +60,14 @@ export default function SaveSlotScreen() {
 
   function handleDelete(slot: SlotId, e: React.MouseEvent) {
     e.stopPropagation();
-    const ok = window.confirm(t('slots.confirm_delete'));
-    if (!ok) return;
-    Progression.deleteSlot(slot);
-    refreshSlots();
+    openModal({
+      type: 'confirm',
+      message: t('slots.confirm_delete'),
+      onConfirm: () => {
+        Progression.deleteSlot(slot);
+        refreshSlots();
+      },
+    });
   }
 
   function handleBack() {

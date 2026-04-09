@@ -19,25 +19,7 @@ export function OfflineIndicator() {
   if (online) return null;
 
   return (
-    <div
-      role="status"
-      aria-live="polite"
-      style={{
-        position: 'fixed',
-        bottom: 8,
-        right: 8,
-        background: '#1a1a2e',
-        color: '#8899aa',
-        padding: '4px 12px',
-        borderRadius: 4,
-        fontFamily: 'monospace',
-        fontSize: '0.75rem',
-        border: '1px solid #334',
-        zIndex: 10000,
-        letterSpacing: '1px',
-        textTransform: 'uppercase',
-      }}
-    >
+    <div role="status" aria-live="polite" className="offline-indicator">
       {t('status.offline')}
     </div>
   );
