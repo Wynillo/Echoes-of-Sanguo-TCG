@@ -248,8 +248,8 @@ export function pickSmartSummonCandidate(hand: CardData[], ctx: BoardContext): n
       if (atk > pVal) score += 300;
     }
 
-    if (atk > playerMaxATK) score += 200;
-    else if (def > playerMaxThreat) score += 100;
+    if (atk >= playerMaxATK) score += 200;
+    else if (def >= playerMaxThreat) score += 100;
 
     if (playerMonsters.length === 0) score += atk;
 
