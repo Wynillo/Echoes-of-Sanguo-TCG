@@ -23,19 +23,16 @@ export type UnlockCondition =
   | { type: 'winsCount'; count: number }
   | null;
 
-/** A thematically curated card pack with a filtered pool and optional unlock condition. */
-export interface PackDef {
+export interface CurrencyDef {
   id: string;
-  name: string;
-  desc: string;
-  nameKey?: string;
-  descKey?: string;
-  price: number;
+  nameKey: string;
   icon: string;
-  color: string;
-  slots: PackSlotDef[];
-  cardPool?: CardPoolDef;
-  unlockCondition?: UnlockCondition;
+  requiredChapter?: number;
+}
+
+export interface PackPrice {
+  currencyId: string;
+  amount: number;
 }
 
 export interface PackSlotDef {
@@ -45,28 +42,46 @@ export interface PackSlotDef {
   distribution?: Record<string, number>; // rarity int -> probability
 }
 
+export interface PackDef {
+  id: string;
+  name: string;
+  desc: string;
+  nameKey?: string;
+  descKey?: string;
+  price: number | PackPrice;
+  icon: string;
+  color: string;
+  slots: PackSlotDef[];
+  cardPool?: CardPoolDef;
+  unlockCondition?: UnlockCondition;
+}
+
 export interface ShopData {
   packs: PackDef[];
-  currency: { nameKey: string; icon: string };
-  backgrounds: Record<string, string>;  // chapter key -> resolved URL
+  currencies: CurrencyDef[];
+  backgrounds: Record<string, string>;
 }
 
 export const SHOP_DATA: ShopData = {
   backgrounds: {},
   packs: [],
-  currency: { nameKey: 'common.coins', icon: '\u25c8' },
+  currencies: [{ id: 'coins', nameKey: 'common.coins', icon: '\u25c8' }],
 };
 
-/**
- * Merge externally loaded shop data into the runtime store.
- * Partial updates are supported — only provided fields are overwritten.
- */
 export function applyShopData(data: Partial<ShopData>): void {
   if (data.packs) {
     SHOP_DATA.packs = data.packs;
   }
-  if (data.currency) {
-    Object.assign(SHOP_DATA.currency, data.currency);
+  if (data.currencies) {
+    for (const incoming of data.currencies) {
+      const id = incoming.id || incoming.nameKey.split('.')[1];
+      const existing = SHOP_DATA.currencies.findIndex(c => c.id === id);
+      if (existing >= 0) {
+        SHOP_DATA.currencies[existing] = { ...incoming, id };
+      } else {
+        SHOP_DATA.currencies.push({ ...incoming, id });
+      }
+    }
   }
   if (data.backgrounds) {
     Object.assign(SHOP_DATA.backgrounds, data.backgrounds);
