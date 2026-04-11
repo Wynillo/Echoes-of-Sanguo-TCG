@@ -6,7 +6,7 @@ function makeOps(overrides = {}) {
   return {
     markNodeComplete: vi.fn(),
     nodeExists: vi.fn().mockReturnValue(true),
-    addCoins: vi.fn(),
+    addCurrency: vi.fn(),
     ownsCard: vi.fn().mockReturnValue(false),
     addCardsToCollection: vi.fn(),
     recordDuelResult: vi.fn(),
@@ -177,7 +177,7 @@ describe('computeCampaignDuelNav', () => {
       ops,
     );
 
-    expect(ops.addCoins).toHaveBeenCalledWith(200);
+    expect(ops.addCurrency).toHaveBeenCalledWith('coins', 200);
   });
 
   it('records duel result for opponent', () => {

@@ -6,26 +6,18 @@ import { useCampaign }    from '../contexts/CampaignContext.js';
 import { Progression }    from '../../progression.js';
 import { getRarityById } from '../../type-metadata.js';
 import { openPack, isPackUnlocked, buildCardPool } from '../utils/pack-logic.js';
-import { SHOP_DATA } from '../../shop-data.js';
-import type { PackDef, PackSlotDef } from '../../shop-data.js';
+import { SHOP_DATA, type PackPrice } from '../../shop-data.js';
+import type { PackDef, PackSlotDef, CurrencyDef } from '../../shop-data.js';
 import { Audio }               from '../../audio.js';
 import type { CardData } from '../../types.js';
-import RaceIcon from '../components/RaceIcon.js';
 import styles from './ShopScreen.module.css';
 
-/** Compute total card count from slots. */
 function totalCards(slots: PackSlotDef[]): number {
   return slots.reduce((sum, s) => sum + s.count, 0);
 }
 
-/**
- * Compute rarity distribution summary from pack slots.
- * `guaranteed` = number of fixed slots for that rarity.
- * `chancePct` = probability (0-100) of getting that rarity from a bonus slot.
- */
 function computeDistribution(slots: PackSlotDef[]): { rarity: number; guaranteed: number; chancePct: number }[] {
   const map = new Map<number, { guaranteed: number; chancePct: number }>();
-
   for (const slot of slots) {
     if (slot.distribution) {
       for (const [rarityStr, prob] of Object.entries(slot.distribution)) {
@@ -41,13 +33,11 @@ function computeDistribution(slots: PackSlotDef[]): { rarity: number; guaranteed
       map.set(r, entry);
     }
   }
-
   return Array.from(map.entries())
     .map(([rarity, data]) => ({ rarity, ...data }))
     .sort((a, b) => a.rarity - b.rarity);
 }
 
-/** Group cards by rarity and count. */
 function countByRarity(cards: CardData[]): { rarity: number; count: number }[] {
   const map = new Map<number, number>();
   for (const c of cards) {
@@ -59,149 +49,98 @@ function countByRarity(cards: CardData[]): { rarity: number; count: number }[] {
     .sort((a, b) => a.rarity - b.rarity);
 }
 
-function useItemsPerPage() {
-  const [ipp, setIpp] = useState(() => window.matchMedia('(min-width: 700px)').matches ? 4 : 3);
-  useEffect(() => {
-    const mq = window.matchMedia('(min-width: 700px)');
-    const handler = (e: MediaQueryListEvent) => setIpp(e.matches ? 4 : 3);
-    mq.addEventListener('change', handler);
-    return () => mq.removeEventListener('change', handler);
-  }, []);
-  return ipp;
+function normalisePackPrice(price: number | PackPrice): PackPrice {
+  if (typeof price === 'number') return { currencyId: 'coins', amount: price };
+  return price;
+}
+
+const CURRENCY_GATE: Record<string, number> = {
+  coins: 1,
+  moderncoins: 3,
+  ancientcoins: 6,
+};
+
+function isCurrencyVisible(currency: { id: string; requiredChapter?: number }, currentChapter: string): boolean {
+  const chapterNum = parseInt(currentChapter.replace('ch', ''), 10) || 1;
+  const required = currency.requiredChapter ?? CURRENCY_GATE[currency.id] ?? 1;
+  return chapterNum >= required;
 }
 
 export default function ShopScreen() {
   const { navigateTo } = useScreen();
-  const { coins, refresh } = useProgression();
+  const { currencies, refresh } = useProgression();
   const { progress } = useCampaign();
   const bgUrl = SHOP_DATA.backgrounds[progress.currentChapter] ?? SHOP_DATA.backgrounds['ch1'] ?? '';
   const { t } = useTranslation();
-
-  const [page, setPage] = useState(0);
-  const itemsPerPage = useItemsPerPage();
   const [infoTarget, setInfoTarget] = useState<{ pack: PackDef } | null>(null);
-
-  // Touch swipe tracking
-  const touchStartX = useRef(0);
-  const touchStartY = useRef(0);
-
-  const unlockedPacks = SHOP_DATA.packs.filter(pkg => isPackUnlocked(pkg));
-  const items = unlockedPacks;
-  const totalPages = Math.ceil(items.length / itemsPerPage);
-
-  // Reset page when items per page changes
-  useEffect(() => { setPage(0); }, [itemsPerPage]);
-
-  const goPage = useCallback((p: number) => {
-    setPage(Math.max(0, Math.min(p, totalPages - 1)));
-  }, [totalPages]);
-
-  const onTouchStart = useCallback((e: React.TouchEvent) => {
-    touchStartX.current = e.touches[0].clientX;
-    touchStartY.current = e.touches[0].clientY;
-  }, []);
-
-  const onTouchEnd = useCallback((e: React.TouchEvent) => {
-    const dx = e.changedTouches[0].clientX - touchStartX.current;
-    const dy = e.changedTouches[0].clientY - touchStartY.current;
-    if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 50) {
-      if (dx < 0) goPage(page + 1);
-      else goPage(page - 1);
-    }
-  }, [goPage, page]);
 
   function buyPack(packId: string) {
     const pkg = SHOP_DATA.packs.find(p => p.id === packId);
-    if (!pkg || coins < pkg.price) return;
-    if (!Progression.spendCoins(pkg.price)) return;
-    Audio.playSfx('sfx_coin');
-    const preOpen = Progression.getCollection();
-    const cards   = openPack(packId);
-    Progression.addCardsToCollection(cards.map((c: CardData) => c.id));
-    Progression.updateSlotMeta();
-    refresh();
-    navigateTo('pack-opening', { cards, preOpen });
+    if (!pkg) return;
+    const { currencyId, amount } = normalisePackPrice(pkg.price);
+    const slot = Progression.getActiveSlot();
+    if (!slot) return;
+    import('../../currencies.js').then(({ spendCurrency }) => {
+      if (!spendCurrency(slot, currencyId, amount)) return;
+      Audio.playSfx('sfx_coin');
+      const preOpen = Progression.getCollection();
+      const cards = openPack(packId);
+      Progression.addCardsToCollection(cards.map((c: CardData) => c.id));
+      Progression.updateSlotMeta();
+      refresh();
+      navigateTo('pack-opening', { cards, preOpen });
+    });
   }
 
   function showInfo(pack: PackDef) {
     setInfoTarget({ pack });
   }
 
-  // Slice items for current page
-  const startIdx = page * itemsPerPage;
-  const visibleItems = items.slice(startIdx, startIdx + itemsPerPage);
-
   return (
     <div className={styles.screen}>
       <div className={styles.shopBg} style={{ backgroundImage: `url(${bgUrl})` }} />
-
-      {/* Header */}
       <div className={styles.header}>
         <button className={`btn-secondary ${styles.backBtn}`} onClick={() => navigateTo('save-point')}>{t('shop.back')}</button>
         <h2 className={styles.shopTitle}>{t('shop.title')}</h2>
-        <div className={styles.coinsBar}>
-          <span className="coins-icon"><RaceIcon icon="GiTwoCoins" /></span>
-          <span className={styles.coinsValue}>{coins.toLocaleString()}</span>
-          <span className="coins-label">{t('common.coins')}</span>
-        </div>
       </div>
 
-      {/* Carousel */}
-      <div className={styles.carousel} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
-        {/* Arrow left */}
-        {totalPages > 1 && (
-          <button
-            className={`${styles.arrowBtn} ${styles.arrowLeft}`}
-            disabled={page === 0}
-            onClick={() => goPage(page - 1)}
-            aria-label="Previous"
-          >‹</button>
-        )}
-
-        <div
-          className={styles.carouselTrack}
-          style={{ '--items-per-page': itemsPerPage } as React.CSSProperties}
-        >
-          {(visibleItems as PackDef[]).map(pkg => {
-            const affordable = coins >= pkg.price;
+      <div className={styles.sectionsContainer}>
+        {SHOP_DATA.currencies
+          .filter(c => isCurrencyVisible(c, progress.currentChapter))
+          .map(currency => {
+            const balance = currencies[currency.id] ?? 0;
+            const packs = SHOP_DATA.packs.filter(pkg => {
+              const { currencyId } = normalisePackPrice(pkg.price);
+              return currencyId === currency.id && isPackUnlocked(pkg);
+            });
+            if (packs.length === 0) return null;
             return (
-              <PackTile
-                key={pkg.id}
-                pkg={pkg}
-                affordable={affordable}
-                onBuy={buyPack}
-                onInfo={() => showInfo(pkg)}
-              />
+              <div key={currency.id} className={styles.currencySection}>
+                <div className={styles.sectionHeader}>
+                  <span>{currency.icon}</span>
+                  <span>{t(currency.nameKey, { defaultValue: currency.id })}</span>
+                  <span className={styles.sectionBalance}>{balance.toLocaleString()}</span>
+                </div>
+                <div className={styles.packGrid}>
+                  {packs.map(pkg => {
+                    const { amount } = normalisePackPrice(pkg.price);
+                    const affordable = balance >= amount;
+                    return (
+                      <PackTile
+                        key={pkg.id}
+                        pkg={pkg}
+                        affordable={affordable}
+                        onBuy={buyPack}
+                        onInfo={() => showInfo(pkg)}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
             );
           })}
-        </div>
-
-        {/* Arrow right */}
-        {totalPages > 1 && (
-          <button
-            className={`${styles.arrowBtn} ${styles.arrowRight}`}
-            disabled={page >= totalPages - 1}
-            onClick={() => goPage(page + 1)}
-            aria-label="Next"
-          >›</button>
-        )}
       </div>
 
-      {/* Dots */}
-      {totalPages > 1 && (
-        <div className={styles.dots}>
-          {Array.from({ length: totalPages }, (_, i) => (
-            <button
-              key={i}
-              className={`${styles.dot}${i === page ? ` ${styles.dotActive}` : ''}`}
-              onClick={() => goPage(i)}
-              aria-label={`Page ${i + 1}`}
-            />
-          ))}
-        </div>
-      )}
-
-      {/* Info Modal */}
       {infoTarget && (
         <PackInfoModal
           pack={infoTarget.pack}
@@ -221,23 +160,29 @@ interface PackTileProps {
 
 function PackTile({ pkg, affordable, onBuy, onInfo }: PackTileProps) {
   const { t } = useTranslation();
+  const { currencyId, amount } = normalisePackPrice(pkg.price);
+  const currencyDef = SHOP_DATA.currencies.find(c => c.id === currencyId);
+  const currencyName = currencyDef ? t(currencyDef.nameKey, { defaultValue: currencyId }) : currencyId;
 
   return (
-    <div
-      className={styles.packTile}
-      style={{ '--pack-color': pkg.color } as React.CSSProperties}
-    >
+    <div className={styles.packTile} style={{ '--pack-color': pkg.color } as React.CSSProperties}>
       <button className={styles.infoBtn} onClick={(e) => { e.stopPropagation(); onInfo(); }} aria-label="Pack info">?</button>
-
       <div className={styles.packTop}>
         <div className={styles.packIcon}>{pkg.icon}</div>
         <div className={styles.packName}>{pkg.name}</div>
         <div className={styles.packCardCount}>{t('shop.cards_count', { count: totalCards(pkg.slots) })}</div>
       </div>
-
       <div className={styles.packBottom}>
-        <div className={styles.packPrice}><RaceIcon icon="GiTwoCoins" /> {pkg.price.toLocaleString()}</div>
-        <button className={styles.buyBtn} disabled={!affordable} onClick={() => onBuy(pkg.id)}>
+        <div className={styles.packPrice} title={affordable ? '' : `Not enough ${currencyName}`}>
+          <span>{currencyDef?.icon ?? '◈'}</span>
+          <span>{amount.toLocaleString()}</span>
+        </div>
+        <button
+          className={styles.buyBtn}
+          disabled={!affordable}
+          onClick={() => onBuy(pkg.id)}
+          title={!affordable ? `Not enough ${currencyName}` : ''}
+        >
           {t('shop.buy_btn')}
         </button>
       </div>
@@ -252,21 +197,14 @@ interface PackInfoModalProps {
 
 function PackInfoModal({ pack, onClose }: PackInfoModalProps) {
   const { t } = useTranslation();
-
   const distribution = useMemo(() => computeDistribution(pack.slots), [pack]);
-
-  const pool = useMemo(() => {
-    return buildCardPool(pack.cardPool);
-  }, [pack]);
-
+  const pool = useMemo(() => buildCardPool(pack.cardPool), [pack]);
   const poolByRarity = useMemo(() => countByRarity(pool), [pool]);
-
   const total = totalCards(pack.slots);
 
   return (
     <div className={styles.infoOverlay} onClick={onClose}>
       <div className={styles.infoModal} onClick={(e) => e.stopPropagation()}>
-        {/* Header */}
         <div className={styles.infoModalHeader}>
           <span className={styles.infoModalIcon}>{pack.icon}</span>
           <div>
@@ -274,8 +212,6 @@ function PackInfoModal({ pack, onClose }: PackInfoModalProps) {
             <div className={styles.infoModalDesc}>{pack.desc}</div>
           </div>
         </div>
-
-        {/* Distribution */}
         <div className={styles.infoSection}>
           <div className={styles.infoSectionTitle}>{t('shop.info_per_pack', { count: total })}</div>
           {distribution.map(({ rarity, guaranteed, chancePct }) => {
@@ -296,8 +232,6 @@ function PackInfoModal({ pack, onClose }: PackInfoModalProps) {
             );
           })}
         </div>
-
-        {/* Card Pool */}
         <div className={styles.infoSection}>
           <div className={styles.infoSectionTitle}>{t('shop.info_cards_in_pool', { count: pool.length })}</div>
           <div className={styles.poolSection}>
@@ -317,7 +251,6 @@ function PackInfoModal({ pack, onClose }: PackInfoModalProps) {
             })}
           </div>
         </div>
-
         <button className={styles.infoCloseBtn} onClick={onClose}>{t('shop.info_close')}</button>
       </div>
     </div>

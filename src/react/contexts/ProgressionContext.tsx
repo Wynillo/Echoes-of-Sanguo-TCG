@@ -7,6 +7,7 @@ import type { SlotId } from '../../progression.js';
 
 interface ProgressionCtx {
   coins: number;
+  currencies: Record<string, number>;
   collection: CollectionEntry[];
   opponents: Record<number, OpponentRecord>;
   currentDeck: string[];
@@ -17,12 +18,13 @@ interface ProgressionCtx {
 }
 
 const ProgressionContext = createContext<ProgressionCtx>({
-  coins: 0, collection: [], opponents: {}, currentDeck: [], activeSlot: null,
+  coins: 0, currencies: {}, collection: [], opponents: {}, currentDeck: [], activeSlot: null,
   refresh: () => {}, setCurrentDeck: () => {}, loadDeck: () => {},
 });
 
 export function ProgressionProvider({ children }: { children: React.ReactNode }) {
   const [coins, setCoins]           = useState(0);
+  const [currencies, setCurrencies] = useState<Record<string, number>>({});
   const [collection, setCollection] = useState<CollectionEntry[]>([]);
   const [opponents, setOpponents]   = useState<Record<number, OpponentRecord>>({});
   const [currentDeck, setCurrentDeck] = useState<string[]>([]);
@@ -32,7 +34,9 @@ export function ProgressionProvider({ children }: { children: React.ReactNode })
     const slot = Progression.getActiveSlot();
     setActiveSlot(slot);
     if (slot === null) return;
-    setCoins(Progression.getCoins());
+    const coinBalance = Progression.getCoins();
+    setCoins(coinBalance);
+    setCurrencies({ coins: coinBalance });
     setCollection(Progression.getCollection());
     setOpponents(Progression.getOpponents());
   }, []);
@@ -87,8 +91,8 @@ export function ProgressionProvider({ children }: { children: React.ReactNode })
   }, [refresh, loadDeck]);
 
   const value = useMemo(
-    () => ({ coins, collection, opponents, currentDeck, activeSlot, refresh, setCurrentDeck, loadDeck }),
-    [coins, collection, opponents, currentDeck, activeSlot, refresh, setCurrentDeck, loadDeck],
+    () => ({ coins, currencies, collection, opponents, currentDeck, activeSlot, refresh, setCurrentDeck, loadDeck }),
+    [coins, currencies, collection, opponents, currentDeck, activeSlot, refresh, setCurrentDeck, loadDeck],
   );
 
   return (

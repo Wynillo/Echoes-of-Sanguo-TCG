@@ -533,3 +533,41 @@
 }
 
 .msg { color: #e06040; font-size: 0.9rem; margin-top: 10px; min-height: 1.2em; }
+
+.sectionsContainer {
+  width: 100%;
+  max-width: 900px;
+  position: relative;
+  z-index: 1;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+.currencySection {
+  margin-bottom: 24px;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: clamp(0.85rem, 2vw, 1.1rem);
+  color: #c8a84b;
+  margin-bottom: 12px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #334;
+}
+
+.sectionBalance {
+  font-family: var(--font-stats);
+  font-weight: bold;
+  color: #f0d080;
+  margin-left: auto;
+}
+
+.packGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px;
+}
