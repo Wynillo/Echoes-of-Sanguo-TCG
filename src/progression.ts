@@ -13,17 +13,17 @@ export interface SlotMeta {
   lastSaved: string | null;  // ISO date string
 }
 
+export interface CraftedCardRecord {
+  id: string;
+  baseId: string;
+  effectSourceId: string;
+}
+
 export const Progression = (() => {
 
   interface EffectItemEntry {
     id: string;
     count: number;
-  }
-
-  export interface CraftedCardRecord {
-    id: string;
-    baseId: string;
-    effectSourceId: string;
   }
 
   // ── Slot-aware key mapping ───────────────────────────────
@@ -352,6 +352,20 @@ function spendCoins(amount: number): boolean {
     _save(_key(SLOT_KEY_NAMES.collection), newCol);
   }
 
+  function removeCardsFromCollection(ids: string[]): void {
+    const col = getCollection();
+    for (const id of ids) {
+      const idx = col.findIndex(e => e.id === id);
+      if (idx !== -1) {
+        col[idx].count -= 1;
+        if (col[idx].count <= 0) {
+          col.splice(idx, 1);
+        }
+      }
+    }
+    _save(_key(SLOT_KEY_NAMES.collection), col);
+  }
+
   function ownsCard(cardId: string): boolean {
     const col = getCollection();
     const entry = col.find(e => e.id === cardId);
@@ -628,6 +642,7 @@ function spendCoins(amount: number): boolean {
     // Collection
     getCollection,
     addCardsToCollection,
+    removeCardsFromCollection,
     ownsCard,
     cardCount,
     // Effect Items

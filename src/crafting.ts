@@ -3,6 +3,7 @@ import { GAME_RULES } from './rules.js';
 import { Progression } from './progression.js';
 import { getEffectSource } from './effect-items.js';
 import { spendCurrency } from './currencies.js';
+import { CardType } from './types.js';
 import type { CardData } from './types.js';
 import type { CraftedCardRecord } from './progression.js';
 
@@ -50,7 +51,7 @@ export function craftEffectMonster(
     return { success: false, error: 'Base card not found' };
   }
   
-  if (baseCard.type !== 1) {
+  if (baseCard.type !== CardType.Monster) {
     return { success: false, error: 'Base card must be a monster' };
   }
   
@@ -80,15 +81,15 @@ export function craftEffectMonster(
     }
   }
   
-  Progression.addCardsToCollection([{ id: baseCardId, count: -1 }]);
+  Progression.removeCardsFromCollection([baseCardId]);
   Progression.removeEffectItem(effectSourceId, 1);
   
   const newId = Progression.addCraftedCard(baseCardId, effectSourceId);
-  Progression.addCardsToCollection([{ id: newId, count: 1 }]);
+  Progression.addCardsToCollection([newId]);
   
   const card = buildCraftedCard({ id: newId, baseId: baseCardId, effectSourceId });
   
-  return { success: true, card };
+  return { success: true, card: card ?? undefined };
 }
 
 export function getCard(id: string | number): CardData | null {
