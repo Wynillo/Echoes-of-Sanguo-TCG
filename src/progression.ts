@@ -15,6 +15,11 @@ export interface SlotMeta {
 
 export const Progression = (() => {
 
+  interface EffectItemEntry {
+    id: string;
+    count: number;
+  }
+
   // ── Slot-aware key mapping ───────────────────────────────
 
   /** Logical key names for per-slot data */
@@ -29,6 +34,7 @@ export const Progression = (() => {
     version:          'save_version',
     seenCards:        'seen_cards',
     campaignProgress: 'campaign_progress',
+    effectItems:      'effect_items',
   } as const;
 
   /** Global keys (not per-slot) */
@@ -350,6 +356,40 @@ function spendCoins(amount: number): boolean {
     return entry ? entry.count : 0;
   }
 
+  function getEffectItems(): EffectItemEntry[] {
+    return _load(_key(SLOT_KEY_NAMES.effectItems), [], v => Array.isArray(v));
+  }
+
+  function addEffectItem(id: string, count: number = 1): void {
+    const items = getEffectItems();
+    const existing = items.find(e => e.id === id);
+    if (existing) {
+      existing.count += count;
+    } else {
+      items.push({ id, count });
+    }
+    _save(_key(SLOT_KEY_NAMES.effectItems), items);
+  }
+
+  function removeEffectItem(id: string, count: number = 1): boolean {
+    const items = getEffectItems();
+    const idx = items.findIndex(e => e.id === id);
+    if (idx === -1) return false;
+    
+    items[idx].count -= count;
+    if (items[idx].count <= 0) {
+      items.splice(idx, 1);
+    }
+    _save(_key(SLOT_KEY_NAMES.effectItems), items);
+    return true;
+  }
+
+  function getEffectItemCount(id: string): number {
+    const items = getEffectItems();
+    const entry = items.find(e => e.id === id);
+    return entry ? entry.count : 0;
+  }
+
   function getDeck(): string[] | null {
     return _load(_key(SLOT_KEY_NAMES.deck), null, v => Array.isArray(v) && v.every(id => typeof id === 'string'));
   }
@@ -546,6 +586,11 @@ function spendCoins(amount: number): boolean {
     addCardsToCollection,
     ownsCard,
     cardCount,
+    // Effect Items
+    getEffectItems,
+    addEffectItem,
+    removeEffectItem,
+    getEffectItemCount,
     // Deck
     getDeck,
     saveDeck,
