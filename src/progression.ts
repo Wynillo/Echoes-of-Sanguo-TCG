@@ -637,6 +637,8 @@ function spendCoins(amount: number): boolean {
     getEffectItemCount,
     // Crafted Cards
     getCraftedCards,
+    getNextCraftedId,
+    incrementCraftedId,
     addCraftedCard,
     findCraftedRecord,
     // Deck
