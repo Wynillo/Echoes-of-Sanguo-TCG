@@ -4,8 +4,11 @@ import { useGame }      from '../contexts/GameContext.js';
 import { useModal }     from '../contexts/ModalContext.js';
 import { useSelection } from '../contexts/SelectionContext.js';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts.js';
+import { useGamepad }   from '../hooks/useGamepad.js';
+import { useHapticFeedback } from '../hooks/useHapticFeedback.js';
 import { cleanupAttackAnimations } from '../hooks/useAttackAnimation.js';
 import RaceIcon from '../components/RaceIcon.js';
+import { ControllerFocusOverlay } from '../components/ControllerFocusOverlay.js';
 
 import { OpponentField }   from './game/OpponentField.js';
 import { PlayerField }     from './game/PlayerField.js';
@@ -23,13 +26,20 @@ export default function GameScreen() {
   const { sel, resetSel }      = useSelection();
   const { t }                  = useTranslation();
   const [showDirect, setShowDirect] = useState(false);
+  const [showControllerHelp, setShowControllerHelp] = useState(false);
+  const [controllerFocus, setControllerFocus] = useState<{
+    type: 'monster' | 'spell' | 'field-spell' | 'hand' | 'grave' | 'phase-btn';
+    owner: 'player' | 'opponent';
+    zone: number;
+  } | null>(null);
 
   const hideDirect         = useCallback(() => setShowDirect(false), []);
   const hideDirectAndReset = useCallback(() => { resetSel(); setShowDirect(false); }, [resetSel]);
 
   const { showHelp, setShowHelp } = useKeyboardShortcuts({ gameState, gameRef, resetSel, onHideDirect: hideDirect });
+  const { connected: controllerConnected, registerCallbacks } = useGamepad();
+  const { vibratePatterns } = useHapticFeedback({ enabled: true, duration: 50, strength: 'light' });
 
-  // Kill any in-flight attack animations when the game screen unmounts
   useEffect(() => () => cleanupAttackAnimations(), []);
 
   useEffect(() => {
@@ -38,6 +48,80 @@ export default function GameScreen() {
       return () => clearTimeout(timer);
     }
   }, [pendingDraw, clearPendingDraw]);
+
+  useEffect(() => {
+    const game = gameRef.current;
+    if (!game || !gameState) return;
+
+    registerCallbacks({
+      onA: () => {
+        if (sel.mode === 'attack' && sel.attackerZone !== null) {
+          const defZone = sel.trapFieldZone ?? null;
+          if (defZone !== null) {
+            game.attackMonster('player', sel.attackerZone, defZone);
+            vibratePatterns.onAttack();
+            resetSel();
+          } else {
+            setShowDirect(true);
+            resetSel();
+          }
+        } else if (sel.mode === 'spell-target' && sel.spellHandIndex !== null && sel.spellFieldZone !== null) {
+          game.setSpell('player', sel.spellHandIndex, sel.spellFieldZone);
+          vibratePatterns.onCardPlay();
+          resetSel();
+        } else if (sel.mode === 'equip-target' && sel.equipHandIndex !== null && sel.equipCard) {
+          vibratePatterns.onCardPlay();
+        }
+      },
+      onB: () => {
+        resetSel();
+        setShowHelp(false);
+        setShowControllerHelp(false);
+      },
+      onStart: () => {
+        if (gameState.phase === 'end') {
+          game.endTurn();
+          vibratePatterns.onTurnEnd();
+        } else {
+          game.advancePhase();
+          vibratePatterns.onPhaseChange();
+        }
+        hideDirectAndReset();
+      },
+      onSelect: () => {
+        openModal({ type: 'main-options' });
+      },
+      onDpad: (direction) => {
+        setControllerFocus(prev => {
+          if (!prev) return { type: 'monster', owner: 'player', zone: 0 };
+          
+          if (prev.type === 'monster' && prev.owner === 'player') {
+            if (direction === 'left' && prev.zone > 0) return { ...prev, zone: prev.zone - 1 };
+            if (direction === 'right' && prev.zone < 2) return { ...prev, zone: prev.zone + 1 };
+            if (direction === 'up') return { type: 'spell', owner: 'player', zone: 0 };
+            if (direction === 'down') return { type: 'hand', owner: 'player', zone: 0 };
+          }
+          
+          if (prev.type === 'spell' && prev.owner === 'player') {
+            if (direction === 'up') return { type: 'monster', owner: 'player', zone: 0 };
+            if (direction === 'down') return { type: 'grave', owner: 'player', zone: 0 };
+          }
+          
+          return prev;
+        });
+      },
+    });
+
+    return () => {
+      registerCallbacks({});
+    };
+  }, [gameRef, gameState, sel.mode, sel.attackerZone, sel.spellHandIndex, sel.spellFieldZone, sel.equipHandIndex, sel.equipCard, registerCallbacks, resetSel, hideDirectAndReset, openModal, vibratePatterns]);
+
+  useEffect(() => {
+    if (controllerConnected) {
+      vibratePatterns.onCardDraw();
+    }
+  }, [controllerConnected, vibratePatterns]);
 
   const onDirectAttack = useCallback(() => {
     const game = gameRef.current;
@@ -217,6 +301,53 @@ export default function GameScreen() {
             </dl>
             <button className="btn-small" onClick={() => setShowHelp(false)}>{t('common.close')}</button>
           </div>
+        </div>
+      )}
+
+      {showControllerHelp && (
+        <div className="controller-help-overlay" onClick={() => setShowControllerHelp(false)}>
+          <div className="controller-help-panel" onClick={e => e.stopPropagation()}>
+            <h3>{t('controller.help_title')}</h3>
+            <div className="controller-help-grid">
+              <div className="controller-help-item">
+                <span className="controller-button large">A</span>
+                <span>{t('controller.help_a')}</span>
+              </div>
+              <div className="controller-help-item">
+                <span className="controller-button large">B</span>
+                <span>{t('controller.help_b')}</span>
+              </div>
+              <div className="controller-help-item">
+                <span className="controller-button large">▶</span>
+                <span>{t('controller.help_start')}</span>
+              </div>
+              <div className="controller-help-item">
+                <span className="controller-button large">⬚</span>
+                <span>{t('controller.help_select')}</span>
+              </div>
+              <div className="controller-help-item">
+                <div className="dpad-icon">⟡</div>
+                <span>{t('controller.help_dpad')}</span>
+              </div>
+            </div>
+            <button className="btn-small" onClick={() => setShowControllerHelp(false)}>{t('common.close')}</button>
+          </div>
+        </div>
+      )}
+
+      <ControllerFocusOverlay connected={controllerConnected} focusedZone={controllerFocus} />
+
+      {controllerConnected && (
+        <div className="controller-hints">
+          <span className="controller-hint">
+            <span className="controller-button">A</span> {t('controller.btn_confirm')}
+          </span>
+          <span className="controller-hint">
+            <span className="controller-button">B</span> {t('controller.btn_cancel')}
+          </span>
+          <span className="controller-hint">
+            <span className="controller-button small">▶</span> {t('controller.help_start')}
+          </span>
         </div>
       )}
 

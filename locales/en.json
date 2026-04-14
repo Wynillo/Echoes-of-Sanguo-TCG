@@ -758,5 +758,26 @@
     "action_excavateAndSummon": "Reveal top {{count}} card(s), summon 1 monster (Level {{maxLevel}} or lower)",
     "action_excavateAndSummon_tip": "Reveals cards from the top of the Deck and summons an eligible monster",
     "action_unknown": "[{{type}}]"
+  },
+  "controller": {
+    "connected_toast": "Controller Connected",
+    "disconnected_toast": "Controller Disconnected",
+    "focus_indicator": "Controller navigation active",
+    "button_a": "A",
+    "button_b": "B",
+    "button_x": "X",
+    "button_y": "Y",
+    "button_start": "Start",
+    "button_select": "Select",
+    "dpad": "D-Pad",
+    "help_title": "Controller Controls",
+    "help_a": "Confirm / Play card / Attack",
+    "help_b": "Cancel / Close overlay",
+    "help_start": "Advance phase / End turn",
+    "help_select": "Open options",
+    "help_dpad": "Navigate cards and zones",
+    "btn_show_help": "Controller Help",
+    "btn_confirm": "Confirm",
+    "btn_cancel": "Cancel"
   }
 }

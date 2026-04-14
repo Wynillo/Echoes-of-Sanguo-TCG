@@ -1,4 +1,5 @@
 @import './animations.css';
+@import './controller.css';
 @tailwind utilities;
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }

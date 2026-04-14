@@ -758,5 +758,26 @@
     "action_excavateAndSummon": "Decke die obersten {{count}} Karte(n) auf, beschwöre 1 Monster (Stufe {{maxLevel}} oder niedriger)",
     "action_excavateAndSummon_tip": "Deckt Karten vom Deck auf und beschwört ein passendes Monster",
     "action_unknown": "[{{type}}]"
+  },
+  "controller": {
+    "connected_toast": "Controller Verbunden",
+    "disconnected_toast": "Controller Getrennt",
+    "focus_indicator": "Controller-Navigation aktiv",
+    "button_a": "A",
+    "button_b": "B",
+    "button_x": "X",
+    "button_y": "Y",
+    "button_start": "Start",
+    "button_select": "Select",
+    "dpad": "D-Pad",
+    "help_title": "Controller-Steuerung",
+    "help_a": "Bestätigen / Karte spielen / Angriff",
+    "help_b": "Abbrechen / Overlay schließen",
+    "help_start": "Phase fortsetzen / Runde beenden",
+    "help_select": "Optionen öffnen",
+    "help_dpad": "Karten und Zonen navigieren",
+    "btn_show_help": "Controller-Hilfe",
+    "btn_confirm": "Bestätigen",
+    "btn_cancel": "Abbrechen"
   }
 }
