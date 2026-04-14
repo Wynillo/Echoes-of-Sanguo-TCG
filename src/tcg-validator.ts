@@ -462,10 +462,10 @@ export function validateOpponentDeck(data: unknown, index: number, knownCardIds?
     warnings.push(`${prefix}: "id" must be a positive number`);
   }
   if (typeof o.name !== 'string' || !o.name) {
-    warnings.push(`${prefix}: "name" must be a non-empty string`);
+    warnings.push(`${prefix}: "name" should be a non-empty string (may come from locale files)`);
   }
-  if (typeof o.title !== 'string') {
-    warnings.push(`${prefix}: "title" must be a string`);
+  if (o.title !== undefined && typeof o.title !== 'string') {
+    warnings.push(`${prefix}: "title" should be a string (may come from locale files)`);
   }
   if (typeof o.race !== 'number' || !Number.isInteger(o.race) || o.race < 1) {
     warnings.push(`${prefix}: "race" must be a positive integer`);

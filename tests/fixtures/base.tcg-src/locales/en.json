@@ -6,5 +6,9 @@
   "card_3_name": "Power Draw",
   "card_3_desc": "Draw 2 cards from your deck.",
   "card_4_name": "Flame Sword",
-  "card_4_desc": "A sword that increases ATK by 300 and DEF by 200."
+  "card_4_desc": "A sword that increases ATK by 300 and DEF by 200.",
+  "opponents": {
+    "1": { "name": "Forest Guardian", "title": "Protector of the Woods", "flavor": "The forest shall not fall while I stand." },
+    "2": { "name": "Dragon Master", "title": "Lord of Dragons", "flavor": "My dragons will reduce you to ashes!" }
+  }
 }

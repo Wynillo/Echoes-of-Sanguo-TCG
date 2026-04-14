@@ -197,23 +197,37 @@ export async function loadTcgFile(
     }
   }
 
-  // Scan opponents/*.json — takes priority over meta.opponentConfigs
-  const oppPaths = Object.keys(zip.files)
-    .filter(f => /^opponents\/[^/]+\.json$/.test(f))
-    .sort();
   let opponents: TcgOpponentDeck[] | undefined;
-  if (oppPaths.length > 0) {
-    opponents = [];
-    for (const p of oppPaths) {
-      try {
-        opponents.push(JSON.parse(await zip.file(p)!.async('string')));
-      } catch {
-        warnings.push(`${p}: failed to parse opponent deck, skipping`);
+  const rootOppFile = zip.file('opponents.json');
+  if (rootOppFile) {
+    try {
+      const data = JSON.parse(await rootOppFile.async('string'));
+      if (Array.isArray(data)) {
+        opponents = data;
+        opponents.sort((a, b) => a.id - b.id);
       }
+    } catch {
+      warnings.push('opponents.json: failed to parse, skipping');
     }
-    opponents.sort((a, b) => a.id - b.id);
   }
   onProgress?.(65);
+
+  if (opponents && localeOverrides) {
+    for (const [, localeData] of localeOverrides.entries()) {
+      const oppLocales = (localeData as any).opponents;
+      if (oppLocales && typeof oppLocales === 'object') {
+        for (const opp of opponents) {
+          const entry = oppLocales[String(opp.id)];
+          if (entry) {
+            if (!opp.name && entry.name) opp.name = entry.name;
+            if (!opp.title && entry.title) opp.title = entry.title;
+            if (!opp.flavor && entry.flavor) opp.flavor = entry.flavor;
+          }
+        }
+        break;
+      }
+    }
+  }
 
   // Build TcgParsedCard[] — merge TcgCard with locale overrides or plaintext
   const parsedCards: TcgParsedCard[] = [];

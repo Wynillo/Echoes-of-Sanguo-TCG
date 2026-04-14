@@ -161,7 +161,7 @@ describe('loadTcgFile', () => {
       }
     });
 
-    it('loads opponents from opponents/*.json', async () => {
+    it('loads opponents from opponents.json', async () => {
       const buffer = await packTcgArchiveToBuffer(FIXTURE_DIR);
       const result = await loadTcgFile(buffer);
 

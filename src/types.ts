@@ -108,13 +108,12 @@ export interface TcgParsedCard {
   equipReqAttr?: number;
 }
 
-// ── Opponent Deck (opponents/opponent_deck_N.json inside base.tcg) ──
 export interface TcgOpponentDeck {
   id:        number;
-  name:      string;
-  title:     string;
+  name?:     string;
+  title?:    string;
   race:      number;
-  flavor:    string;
+  flavor?:   string;
   coinsWin:  number;
   coinsLoss: number;
   deckIds:   number[];
