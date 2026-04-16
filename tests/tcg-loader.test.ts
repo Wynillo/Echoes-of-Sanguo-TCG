@@ -35,13 +35,13 @@ describe('loadTcgFile', () => {
     expect(dragon!.race).toBe(1);
   });
 
-  it('keeps effect as opaque string', async () => {
+  it('keeps effect as string', async () => {
     const buffer = await packTcgArchiveToBuffer(FIXTURE_DIR);
     const result = await loadTcgFile(buffer);
 
     const spell = result.parsedCards.find(c => c.id === 3);
     expect(spell).toBeDefined();
-    expect(spell!.effect).toBe('drawCard:2');
+    expect(spell!.effect).toBe('onSummon:draw(self,2)');
     expect(spell!.spellType).toBe(1);
   });
 

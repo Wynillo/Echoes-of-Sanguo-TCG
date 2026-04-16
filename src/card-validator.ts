@@ -1,5 +1,6 @@
 import type { ValidationResult } from './types.js';
 import { TCG_TYPES, TCG_TYPE_SPELL, TCG_TYPE_TRAP, TCG_TYPE_MONSTER, TCG_TYPE_FUSION, TCG_TYPE_EQUIPMENT, TCG_TRAP_TRIGGERS, TCG_TRAP_TRIGGER_NAME_TO_ID } from './types.js';
+import { isValidTcgEffectString } from './effect-serializer.js';
 const VALID_TYPES       = new Set(TCG_TYPES);
 const VALID_TRAP_TRIGGERS = new Set(TCG_TRAP_TRIGGERS);
 
@@ -79,10 +80,12 @@ function validateSingleCard(card: unknown, index: number): string[] {
     }
   }
 
-  // effect: optional string (treated as opaque — semantic validation is done by the engine bridge)
+  // effect: optional string (parsed and validated for syntax)
   if (c.effect !== undefined && c.effect !== null) {
     if (typeof c.effect !== 'string') {
       errors.push(`${prefix}.effect: must be a string, got ${typeof c.effect}`);
+    } else if (!isValidTcgEffectString(c.effect)) {
+      errors.push(`${prefix}.effect: invalid effect syntax`);
     }
   }
 
