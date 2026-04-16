@@ -7,3 +7,4 @@ export {
   validateFusionFormulasJson,
   validateOpponentDeck,
 } from './tcg-validator.js';
+export { isValidTcgEffectString } from './effect-serializer.js';

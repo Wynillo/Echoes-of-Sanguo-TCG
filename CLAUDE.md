@@ -31,11 +31,12 @@ There is no linter or formatter configured.
 ```
 src/
 ├── index.ts              # Public API exports
-├── types.ts              # All type definitions and integer enum constants
+├── types.ts              # All type definitions, integer enum constants, effect descriptor map
+├── effect-serializer.ts  # Effect string ↔ TcgCardEffectBlock codec (serialize/deserialize/validate)
 ├── tcg-loader.ts         # Loads .tcg archives (ZIP → TcgLoadResult)
 ├── tcg-packer.ts         # Packs directories into .tcg archives (Node.js only)
 ├── tcg-validator.ts      # Validates archive structure and cross-references
-├── card-validator.ts     # Validates TcgCard[] schema
+├── card-validator.ts     # Validates TcgCard[] schema (including effect syntax)
 ├── def-validator.ts      # Validates TcgCardDefinition[] schema
 ├── opp-desc-validator.ts # Validates opponent description schema
 └── cli.ts                # CLI entry point (validate, pack, inspect commands)
@@ -51,6 +52,8 @@ tests/
 - **Environment-agnostic loader** — works in both browser (fetch) and Node.js; returns raw `ArrayBuffer` for images instead of blob URLs.
 - **Node-only packer** — `packTcgArchive` and `packTcgArchiveToBuffer` use `node:fs`.
 - **Multi-stage validation** — individual validators (cards, definitions, opponents) compose into the archive validator. Validation collects all errors rather than failing fast.
+- **Effect serialization** — `effect-serializer.ts` provides a pure codec between effect strings (stored in `cards.json`) and typed `TcgCardEffectBlock` objects. The card validator uses `isValidTcgEffectString()` to validate effect syntax at load time.
+- **Authoritative type source** — this library defines all card-related types and constants that the Echoes of Sanguo engine consumes. The engine imports types from `@wynillo/tcg-format` instead of declaring its own.
 - **Custom error types** — `TcgNetworkError` for fetch failures, `TcgFormatError` for structural/validation failures.
 
 ## Code Conventions
@@ -66,7 +69,9 @@ tests/
 |---------|--------|-------|
 | Card Types | 1=Monster, 2=Fusion, 3=Spell, 4=Trap, 5=Equipment | Monsters/Fusions have ATK/DEF/level; Spells have spellType; Traps have trapTrigger; Equipment has bonuses |
 | Spell Types | 1=normal, 2=targeted, 3=fromGrave, 4=field | Spells only |
-| Trap Triggers | 1=onAttack, 2=onOwnMonsterAttacked, 3=onOpponentSummon, 4=manual, 5=onOpponentSpell, 6=onAnySummon, 7=onOpponentTrap | Traps only |
+| Trap Triggers | 1=onAttack, 2=onOwnMonsterAttacked, 3=onOpponentSummon, 4=manual, 5=onOpponentSpell, 6=onAnySummon, 7=onOpponentTrap, 8=onOppCardEffect, 9=onOpponentDraw | Traps only |
+| Effect Triggers | onSummon, onDestroyByBattle, onDestroyByOpponent, passive, onFlipSummon, onFlip, onDealBattleDamage, onSentToGrave | Monster/spell effects |
+| Effect Actions | 60+ action types in `TcgEffectDescriptorMap` | Open interface — engine can extend via declaration merging |
 | Attributes | 1=Light, 2=Dark, 3=Fire, 4=Water, 5=Earth, 6=Wind | Optional on monsters/fusions |
 | Races | Base: 1-12 (Dragon, Spellcaster, Warrior, Beast, Plant, Rock, Phoenix, Undead, Aqua, Insect, Machine, Pyro); extensible by mods (20+) | Optional on monsters/fusions |
 | Rarities | 1=Common, 2=Uncommon, 4=Rare, 6=Super Rare, 8=Ultra Rare | Non-consecutive integers |
@@ -86,7 +91,7 @@ A `.tcg` file is a ZIP archive containing:
 - `campaign.json` — story campaign structure
 - `shop.json` — booster pack definitions (supports `nameKey`/`descKey` i18n keys and `cardPool` filters)
 - `fusion_formulas.json` — fusion recipe definitions
-- `rules.json` — game rules (opaque to format library)
+- `rules.json` — game rules (validated against `TcgGameRules` schema)
 - `locales/` — locale override files (en.json, de.json, etc.)
 - `ui/` — UI assets (shop backgrounds, etc.)
 - `races.json`, `attributes.json`, `card_types.json`, `rarities.json` — metadata lookups

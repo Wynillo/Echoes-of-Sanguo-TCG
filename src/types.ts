@@ -41,6 +41,175 @@ export const TCG_TRAP_TRIGGER_NAME_TO_ID: Record<string, number> = {
   onOpponentDraw:        TCG_TRAP_ON_OPPONENT_DRAW,
 };
 
+/** String literal type for trap trigger names. */
+export type TcgTrapTrigger =
+  | 'onAttack' | 'onOwnMonsterAttacked' | 'onOpponentSummon'
+  | 'manual' | 'onOpponentSpell' | 'onAnySummon'
+  | 'onOpponentTrap' | 'onOppCardEffect' | 'onOpponentDraw';
+
+/** Maps numeric trap-trigger IDs to their string names. */
+export const TCG_TRAP_TRIGGER_ID_TO_NAME: Record<number, TcgTrapTrigger> = {
+  [TCG_TRAP_ON_ATTACK]:              'onAttack',
+  [TCG_TRAP_ON_OWN_MONSTER_ATTACKED]: 'onOwnMonsterAttacked',
+  [TCG_TRAP_ON_OPPONENT_SUMMON]:     'onOpponentSummon',
+  [TCG_TRAP_MANUAL]:                 'manual',
+  [TCG_TRAP_ON_OPPONENT_SPELL]:      'onOpponentSpell',
+  [TCG_TRAP_ON_ANY_SUMMON]:          'onAnySummon',
+  [TCG_TRAP_ON_OPPONENT_TRAP]:       'onOpponentTrap',
+  [TCG_TRAP_ON_OPP_CARD_EFFECT]:     'onOppCardEffect',
+  [TCG_TRAP_ON_OPPONENT_DRAW]:       'onOpponentDraw',
+};
+
+// ── Effect Triggers ──────────────────────────────────────────
+export type TcgEffectTrigger =
+  | 'onSummon' | 'onDestroyByBattle' | 'onDestroyByOpponent'
+  | 'passive' | 'onFlipSummon' | 'onFlip'
+  | 'onDealBattleDamage' | 'onSentToGrave';
+
+export const TCG_EFFECT_TRIGGERS: readonly TcgEffectTrigger[] = [
+  'onSummon', 'onDestroyByBattle', 'onDestroyByOpponent',
+  'passive', 'onFlipSummon', 'onFlip',
+  'onDealBattleDamage', 'onSentToGrave',
+] as const;
+
+/** Combined set of all valid trigger strings (effect + trap). */
+export const TCG_ALL_TRIGGERS = new Set<string>([
+  ...TCG_EFFECT_TRIGGERS,
+  ...Object.keys(TCG_TRAP_TRIGGER_NAME_TO_ID),
+]);
+
+// ── Position ───────────────────────────────────────────────
+export type TcgPosition = 'atk' | 'def';
+
+// ── ValueExpr (dynamic damage/heal values) ─────────────────
+export type TcgValueExpr =
+  | number
+  | { from: 'attacker.effectiveATK'; multiply: number; round: 'floor' | 'ceil' }
+  | { from: 'summoned.atk'; multiply: number; round: 'floor' | 'ceil' };
+
+// ── StatTarget ─────────────────────────────────────────────
+export type TcgStatTarget = 'ownMonster' | 'oppMonster' | 'attacker' | 'defender' | 'summonedFC';
+
+// ── Card Effect Filter ─────────────────────────────────────
+export interface TcgCardEffectFilter {
+  race?: number;
+  attr?: number;
+  cardType?: number;
+  cardId?: string;
+  maxAtk?: number;
+  minAtk?: number;
+  maxDef?: number;
+  maxLevel?: number;
+  minLevel?: number;
+  random?: number;
+}
+
+// ── Equip Requirement ──────────────────────────────────────
+export interface TcgEquipRequirement {
+  race?: number;
+  attr?: number;
+}
+
+// ── Effect Cost ────────────────────────────────────────────
+export interface TcgEffectCost {
+  lp?: number;
+  discard?: number;
+  tributeSelf?: boolean;
+  lpHalf?: boolean;
+}
+
+// ── Effect Descriptor Map (open for engine/mod extension) ──
+export interface TcgEffectDescriptorMap {
+  dealDamage:                   { target: 'opponent' | 'self'; value: TcgValueExpr };
+  gainLP:                       { target: 'opponent' | 'self'; value: number | TcgValueExpr };
+  draw:                         { target: 'self' | 'opponent'; count: number };
+  buffField:                    { value: number; filter?: TcgCardEffectFilter };
+  tempBuffField:                { value: number; filter?: TcgCardEffectFilter };
+  debuffField:                  { atkD: number; defD: number };
+  tempDebuffField:              { atkD: number; defD?: number };
+  bounceStrongestOpp:           {};
+  bounceAttacker:               {};
+  bounceAllOppMonsters:         {};
+  searchDeckToHand:             { filter: TcgCardEffectFilter };
+  tempAtkBonus:                 { target: TcgStatTarget; value: number };
+  permAtkBonus:                 { target: TcgStatTarget; value: number; filter?: TcgCardEffectFilter };
+  tempDefBonus:                 { target: TcgStatTarget; value: number };
+  permDefBonus:                 { target: TcgStatTarget; value: number };
+  reviveFromGrave:              {};
+  cancelAttack:                 {};
+  cancelEffect:                 {};
+  destroyAttacker:              {};
+  destroySummonedIf:            { minAtk: number };
+  destroyAllOpp:                {};
+  destroyAll:                   {};
+  destroyWeakestOpp:            {};
+  destroyStrongestOpp:          {};
+  sendTopCardsToGrave:          { count: number };
+  sendTopCardsToGraveOpp:       { count: number };
+  salvageFromGrave:             { filter: TcgCardEffectFilter };
+  recycleFromGraveToDeck:       { filter: TcgCardEffectFilter };
+  shuffleGraveIntoDeck:         {};
+  shuffleDeck:                  {};
+  peekTopCard:                  {};
+  specialSummonFromHand:        { filter?: TcgCardEffectFilter };
+  discardFromHand:              { count: number };
+  discardOppHand:               { count: number };
+  passive_piercing:             {};
+  passive_untargetable:         {};
+  passive_directAttack:         {};
+  passive_vsAttrBonus:          { attr: number; atk: number };
+  passive_phoenixRevival:       {};
+  passive_indestructible:       {};
+  passive_effectImmune:         {};
+  passive_cantBeAttacked:       {};
+  destroyOppSpellTrap:          {};
+  destroyAllOppSpellTraps:      {};
+  destroyAllSpellTraps:         {};
+  destroyOppFieldSpell:         {};
+  changePositionOpp:            {};
+  setFaceDown:                  {};
+  flipAllOppFaceDown:           {};
+  destroyByFilter:              { filter?: TcgCardEffectFilter; mode: 'weakest' | 'strongest' | 'highestDef' | 'first'; side?: 'opponent' | 'self' };
+  halveAtk:                     { target: TcgStatTarget };
+  doubleAtk:                    { target: TcgStatTarget };
+  swapAtkDef:                   { side: 'self' | 'opponent' | 'all' };
+  specialSummonFromDeck:        { filter: TcgCardEffectFilter; faceDown?: boolean; position?: TcgPosition };
+  reflectBattleDamage:          {};
+  stealMonster:                 {};
+  skipOppDraw:                  {};
+  discardEntireHand:            { target: 'self' | 'opponent' | 'both' };
+  destroyAndDamageBoth:         { side: 'opponent' | 'self' };
+  preventBattleDamage:          {};
+  passive_negateTraps:          {};
+  passive_negateSpells:         {};
+  passive_negateMonsterEffects: {};
+  stealMonsterTemp:             {};
+  reviveFromEitherGrave:        {};
+  drawThenDiscard:              { drawCount: number; discardCount: number };
+  bounceOppHandToDeck:          { count: number };
+  tributeSelf:                  {};
+  preventAttacks:               { turns: number };
+  createTokens:                 { tokenId: string; count: number; position: TcgPosition };
+  gameReset:                    {};
+  excavateAndSummon:            { count: number; maxLevel: number };
+  millOpp:                      { count: number };
+  banishOppGy:                  {};
+  negateAttack:                 {};
+  reflectDamage:                { multiplier: number };
+  negate:                       {};
+}
+
+export type TcgEffectDescriptor = {
+  [K in keyof TcgEffectDescriptorMap]: { type: K } & TcgEffectDescriptorMap[K]
+}[keyof TcgEffectDescriptorMap];
+
+// ── Card Effect Block ──────────────────────────────────────
+export interface TcgCardEffectBlock {
+  trigger: TcgEffectTrigger | TcgTrapTrigger;
+  actions: TcgEffectDescriptor[];
+  cost?: TcgEffectCost;
+}
+
 export const DEFAULT_GAME_RULES: TcgGameRules = {
   startingLP:        8000,
   maxLP:             99999,
@@ -109,15 +278,18 @@ export interface TcgParsedCard {
 }
 
 export interface TcgOpponentDeck {
-  id:        number;
-  name?:     string;
-  title?:    string;
-  race:      number;
-  flavor?:   string;
-  coinsWin:  number;
-  coinsLoss: number;
-  deckIds:   number[];
-  behavior?: string;
+  id:            number;
+  name?:         string;
+  title?:        string;
+  race:          number;
+  flavor?:       string;
+  coinsWin:      number;
+  coinsLoss:     number;
+  deckIds:       number[];
+  behavior?:     string;
+  currencyId?:   string;
+  behaviorId?:   string;
+  rewardConfig?: unknown;
 }
 
 // ── Opponent Description (localized) ────────────────────────────
@@ -178,10 +350,13 @@ export type TcgRaritiesJson = TcgRarityEntry[];
 // ── Locale overrides ─────────────────────────────────────────
 export type TcgLocaleOverrides = Record<string, string>;
 
+// ── Fusion Combo Types ──────────────────────────────────────────
+export type TcgFusionComboType = 'race+race' | 'race+attr' | 'attr+attr';
+
 // ── Fusion Formulas ──────────────────────────────────────────
 export interface TcgFusionFormula {
   id:         string;
-  comboType:  string;
+  comboType:  TcgFusionComboType;
   operand1:   number;
   operand2:   number;
   priority:   number;
@@ -295,16 +470,20 @@ export interface ForegroundSprite {
 
 // ── Game Rules ──────────────────────────────────────────
 export interface TcgGameRules {
-  startingLP:        number;   // life points at game start
-  maxLP:             number;   // hard cap on life points
-  handLimitDraw:     number;   // max hand size during draw phase
-  handLimitEnd:      number;   // max hand size at end of turn
-  fieldZones:        number;   // monster/spell-trap zone count per side
-  maxDeckSize:       number;   // maximum cards in a deck
-  maxCardCopies:     number;   // max copies of a single card per deck
-  drawPerTurn:       number;   // cards drawn per draw phase
-  handRefillSize:    number;   // hand size threshold for refill
-  refillHandEnabled: boolean;  // whether hand-refill mechanic is active
+  startingLP:        number;
+  maxLP:             number;
+  handLimitDraw:     number;
+  handLimitEnd:      number;
+  fieldZones:        number;
+  maxDeckSize:       number;
+  maxCardCopies:     number;
+  drawPerTurn:       number;
+  handRefillSize:    number;
+  refillHandEnabled: boolean;
+  craftingEnabled?:  boolean;
+  craftingCurrency?: string | undefined;
+  craftingCost?:     number;
+  oneMoveEnabled?:   boolean;
 }
 
 // ── Load result ──────────────────────────────────────────────

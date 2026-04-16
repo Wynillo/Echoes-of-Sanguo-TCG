@@ -60,10 +60,17 @@ describe('validateTcgCards', () => {
     expect(result.valid).toBe(true);
   });
 
-  it('treats effect as opaque string', () => {
-    const cards = [{ id: 1, type: 1, level: 4, rarity: 1, effect: 'someCustomEffect:arg1:arg2' }];
+  it('accepts valid effect syntax', () => {
+    const cards = [{ id: 1, type: 1, level: 4, rarity: 1, effect: 'onSummon:draw(self,2)' }];
     const result = validateTcgCards(cards);
     expect(result.valid).toBe(true);
+  });
+
+  it('rejects invalid effect syntax', () => {
+    const cards = [{ id: 1, type: 1, level: 4, rarity: 1, effect: 'badTrigger:draw(self,2)' }];
+    const result = validateTcgCards(cards);
+    expect(result.valid).toBe(false);
+    expect(result.errors.some(e => e.includes('invalid effect syntax'))).toBe(true);
   });
 
   it('rejects non-string effect', () => {

@@ -8,6 +8,7 @@ export type {
   TcgOpponentDeck,
   TcgOpponentDescription,
   TcgFusionFormula,
+  TcgFusionComboType,
   TcgLoadResult,
   TcgShopJson,
   TcgCampaignJson,
@@ -26,6 +27,17 @@ export type {
   TcgRaritiesJson,
   TcgLocaleOverrides,
   TcgGameRules,
+  TcgTrapTrigger,
+  TcgEffectTrigger,
+  TcgPosition,
+  TcgValueExpr,
+  TcgStatTarget,
+  TcgCardEffectFilter,
+  TcgEquipRequirement,
+  TcgEffectCost,
+  TcgEffectDescriptorMap,
+  TcgEffectDescriptor,
+  TcgCardEffectBlock,
   CampaignData,
   CampaignChapter,
   CampaignNode,
@@ -47,9 +59,21 @@ export {
   TCG_TRAP_ON_ATTACK, TCG_TRAP_ON_OWN_MONSTER_ATTACKED, TCG_TRAP_ON_OPPONENT_SUMMON, TCG_TRAP_MANUAL,
   TCG_TRAP_ON_OPPONENT_SPELL, TCG_TRAP_ON_ANY_SUMMON, TCG_TRAP_ON_OPPONENT_TRAP,
   TCG_TRAP_ON_OPP_CARD_EFFECT, TCG_TRAP_ON_OPPONENT_DRAW,
-  TCG_TRAP_TRIGGERS, TCG_TRAP_TRIGGER_NAME_TO_ID,
+  TCG_TRAP_TRIGGERS, TCG_TRAP_TRIGGER_NAME_TO_ID, TCG_TRAP_TRIGGER_ID_TO_NAME,
+  TCG_EFFECT_TRIGGERS, TCG_ALL_TRIGGERS,
   DEFAULT_GAME_RULES,
 } from './types.js';
+
+// ── Effect Serializer ────────────────────────────────────────
+export {
+  serializeTcgEffect,
+  deserializeTcgEffect,
+  serializeTcgEffects,
+  deserializeTcgEffects,
+  parseTcgEffectString,
+  isValidTcgEffectString,
+  isMultiBlockTcgEffect,
+} from './effect-serializer.js';
 
 // ── Loader ───────────────────────────────────────────────────
 export { loadTcgFile, TcgNetworkError, TcgFormatError } from './tcg-loader.js';
