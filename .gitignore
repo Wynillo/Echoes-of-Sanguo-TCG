@@ -17,3 +17,6 @@ coverage/
 test-results/
 playwright-report/
 list.zip
+
+# OpenCode tool config (local only, not for repo)
+.opencode/
