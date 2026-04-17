@@ -15,6 +15,32 @@ The game engine and runtime for **Echoes of Sanguo** — a browser-based TCG ins
 
 ---
 
+## Documentation
+
+Comprehensive documentation is available in [`docs/`](./docs/README.md):
+
+| Topic | File | Status |
+|-------|------|--------|
+| **Core Engine** | | |
+| Cards & Field | [docs/cards-field.md](./docs/cards-field.md) | ✅ Complete |
+| Effect System | [docs/effect-system.md](./docs/effect-system.md) | ✅ Complete |
+| Engine-Core | [docs/engine-core.md](./docs/engine-core.md) | ✅ Complete |
+| TCG Format | [docs/tcg-format.md](./docs/tcg-format.md) | ✅ Complete |
+| Mod API | [docs/mod-api.md](./docs/mod-api.md) | ✅ Complete |
+| AI System | [docs/ai-system.md](./docs/ai-system.md) | ✅ Complete |
+| UI Architecture | [docs/ui-architecture.md](./docs/ui-architecture.md) | ✅ Complete |
+| **Content & Progression** | | |
+| Opponents & Decks | [docs/opponents-decks.md](./docs/opponents-decks.md) | ✅ Complete |
+| Shop & Progression | [docs/shop-progression.md](./docs/shop-progression.md) | ✅ Complete |
+| Campaign | [docs/campaign.md](./docs/campaign.md) | ✅ Complete |
+| **Reference** | | |
+| Architecture | [.claude/architecture.md](./.claude/architecture.md) | ✅ Complete |
+| Conventions | [.claude/conventions.md](./.claude/conventions.md) | ✅ Complete |
+
+➡️ **Start here:** [docs/README.md](./docs/README.md) — Full documentation index (10/11 docs complete, 91%)
+
+---
+
 ## Game Rules
 
 Echoes of Sanguo is a 1v1 duel card game. Each player starts with **8000 Life Points**. The first player to reach 0 loses.
