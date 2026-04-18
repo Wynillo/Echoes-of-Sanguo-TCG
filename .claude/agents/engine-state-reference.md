@@ -1,3 +1,17 @@
+---
+name: engine-state-reference
+description: >
+  Read-only reference for engine state management in src/engine/.
+  Provides documentation on GameState, PlayerState, FieldCard, and FieldSpellTrap
+  structures. Use for understanding state mutations, turn flow, and serialization.
+  Does not execute code — read-only consultation on engine architecture.
+tools:
+  - Read
+  - Grep
+  - Glob
+model: sonnet
+---
+
 # src/engine/ State Management
 
 Dieses Verzeichnis enthält die Engine-Schicht des Spiels. Die Engine ist reines TypeScript ohne React-Abhängigkeiten und verwaltet den kompletten Spielzustand.
