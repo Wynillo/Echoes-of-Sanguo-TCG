@@ -456,6 +456,113 @@ async function aiEquipCards(deps: AIDependencies): Promise<void> {
   }
 }
 
+/**
+ * Check if the AI should skip the battle phase based on current goal and board state.
+ * Specifically handles the stall_drain goal - skip when winning but can't achieve lethal.
+ */
+function shouldSkipBattlePhase(
+  ai: PlayerState,
+  plr: PlayerState,
+  goal?: AIGoal
+): boolean {
+  if (goal?.id !== 'stall_drain') {
+    return false;
+  }
+
+  const snap = snapshotBoard(ai, plr);
+  const isWinning = computeBoardThreat(snap) > 0;
+  const totalATK = ai.field.monsters
+    .filter((fc): fc is FieldCard => fc !== null && fc.position === 'atk' && !fc.turnState.hasAttacked)
+    .reduce((sum, fc) => sum + fc.effectiveATK(), 0);
+  const canKill = totalATK > plr.lp || plr.field.monsters.every(fc => fc === null);
+
+  return isWinning && !canKill;
+}
+
+function _retargetOrGoDirect(
+  deps: AIDependencies,
+  atk: FieldCard,
+  attackerZone: number,
+  plrMonsters: Array<FieldCard | null>,
+  bh: Required<AIBehavior>
+): boolean {
+  const plrHasMonsters = plrMonsters.some(m => m !== null);
+
+  if (!plrHasMonsters) {
+    EchoesOfSanguo.log('BATTLE', `${atk.card.name} → target destroyed, going direct!`);
+    deps.attackDirect('opponent', attackerZone);
+    return true;
+  }
+
+  const altTarget = aiBattlePickTarget(atk, plrMonsters, bh);
+  if (altTarget === -1) {
+    return false;
+  }
+
+  const altDef = plrMonsters[altTarget]!;
+  EchoesOfSanguo.log('BATTLE', `${atk.card.name}(${atk.effectiveATK()}) → ${altDef.card.name} (retarget)`);
+  deps.attack('opponent', attackerZone, altTarget);
+  return true;
+}
+
+async function _executeDirectAttack(
+  deps: AIDependencies,
+  atk: FieldCard,
+  attackerZone: number,
+  plrMonsters: Array<FieldCard | null>,
+  bh: Required<AIBehavior>
+): Promise<boolean> {
+  const plrHasMonsters = plrMonsters.some(m => m !== null);
+  
+  if (!plrHasMonsters || atk.canDirectAttack) {
+    EchoesOfSanguo.log('BATTLE', `${atk.card.name}(${atk.effectiveATK()}) → Direct attack!${atk.canDirectAttack ? ' (canDirectAttack)' : ''}`);
+    await deps.attackDirect('opponent', attackerZone);
+    return true;
+  }
+
+  const fallbackTarget = aiBattlePickTarget(atk, plrMonsters, bh);
+  if (fallbackTarget !== -1) {
+    const def = plrMonsters[fallbackTarget]!;
+    EchoesOfSanguo.log('BATTLE', `${atk.card.name}(${atk.effectiveATK()}) → ${def.card.name} (fallback target)`);
+    await deps.attack('opponent', attackerZone, fallbackTarget);
+    return true;
+  }
+
+  return false;
+}
+
+async function _executeAttack(
+  deps: AIDependencies,
+  plan: { attackerZone: number; targetZone: number },
+  aiMonsters: Array<FieldCard | null>,
+  plrMonsters: Array<FieldCard | null>,
+  plrLP: number,
+  bh: Required<AIBehavior>
+): Promise<boolean> {
+  const atk = aiMonsters[plan.attackerZone];
+  if (!atk || atk.turnState.hasAttacked || atk.position !== 'atk') {
+    return false;
+  }
+
+  await deps.delay(500);
+
+  if (plan.targetZone === -1) {
+    const attackMade = await _executeDirectAttack(deps, atk, plan.attackerZone, plrMonsters, bh);
+    return attackMade && deps.checkWin();
+  }
+
+  const def = plrMonsters[plan.targetZone];
+  if (def) {
+    const defVal = def.combatValue();
+    EchoesOfSanguo.log('BATTLE', `${atk.card.name}(${atk.effectiveATK()}) → ${def.card.name}(${def.position==='atk'?'ATK':'DEF'}:${defVal})`);
+    await deps.attack('opponent', plan.attackerZone, plan.targetZone);
+    return deps.checkWin();
+  }
+
+  const attackMade = _retargetOrGoDirect(deps, atk, plan.attackerZone, plrMonsters, bh);
+  return attackMade && deps.checkWin();
+}
+
 async function aiBattlePhase(deps: AIDependencies): Promise<boolean> {
   const state = deps.getState();
   const ai  = deps.getOpponentState();
@@ -470,17 +577,9 @@ async function aiBattlePhase(deps: AIDependencies): Promise<boolean> {
   await deps.delay(500);
 
   const activeGoal = evaluateTurnGoal(state.turn, bh.goal);
-  if (activeGoal?.id === 'stall_drain') {
-    const snap = snapshotBoard(ai, plr);
-    const isWinning = computeBoardThreat(snap) > 0;
-    const totalATK = ai.field.monsters
-      .filter((fc): fc is FieldCard => fc !== null && fc.position === 'atk' && !fc.turnState.hasAttacked)
-      .reduce((sum, fc) => sum + fc.effectiveATK(), 0);
-    const canKill = totalATK > plr.lp || plr.field.monsters.every(fc => fc === null);
-    if (isWinning && !canKill) {
-      EchoesOfSanguo.log('AI', 'stall_drain: winning + no lethal – skipping battle phase.');
-      return false;
-    }
+  if (shouldSkipBattlePhase(ai, plr, activeGoal)) {
+    EchoesOfSanguo.log('AI', 'stall_drain: winning + no lethal – skipping battle phase.');
+    return false;
   }
 
   if (bh.peekPlayerDeck && bh.peekPlayerDeck > 0 && plr.deck.length > 0) {
@@ -495,122 +594,118 @@ async function aiBattlePhase(deps: AIDependencies): Promise<boolean> {
   }
 
   for (const plan of attackPlan) {
-    const atk = ai.field.monsters[plan.attackerZone];
-    if (!atk) continue;
-    if (atk.turnState.hasAttacked) continue;
-    if (atk.position !== 'atk') continue;
-
-    await deps.delay(500);
-
-    if (plan.targetZone === -1) {
-      const plrHasMonsters = plr.field.monsters.some(m => m !== null);
-      if (!plrHasMonsters || atk.canDirectAttack) {
-        EchoesOfSanguo.log('BATTLE', `${atk.card.name}(${atk.effectiveATK()}) → Direct attack!${atk.canDirectAttack ? ' (canDirectAttack)' : ''}`);
-        await deps.attackDirect('opponent', plan.attackerZone);
-        if (deps.checkWin()) return true;
-      } else {
-        const fallbackTarget = _findBestAvailableTarget(atk, plr.field.monsters, bh);
-        if (fallbackTarget !== -1) {
-          const def = plr.field.monsters[fallbackTarget]!;
-          EchoesOfSanguo.log('BATTLE', `${atk.card.name}(${atk.effectiveATK()}) → ${def.card.name} (fallback target)`);
-          await deps.attack('opponent', plan.attackerZone, fallbackTarget);
-          if (deps.checkWin()) return true;
-        }
-      }
-    } else {
-      const def = plr.field.monsters[plan.targetZone];
-      if (def) {
-        const defVal = def.combatValue();
-        EchoesOfSanguo.log('BATTLE', `${atk.card.name}(${atk.effectiveATK()}) → ${def.card.name}(${def.position==='atk'?'ATK':'DEF'}:${defVal})`);
-        await deps.attack('opponent', plan.attackerZone, plan.targetZone);
-        if (deps.checkWin()) return true;
-      } else {
-        const plrHasMonsters = plr.field.monsters.some(m => m !== null);
-        if (!plrHasMonsters) {
-          EchoesOfSanguo.log('BATTLE', `${atk.card.name} → target destroyed, going direct!`);
-          await deps.attackDirect('opponent', plan.attackerZone);
-          if (deps.checkWin()) return true;
-        } else {
-          const altTarget = _findBestAvailableTarget(atk, plr.field.monsters, bh);
-          if (altTarget !== -1) {
-            const altDef = plr.field.monsters[altTarget]!;
-            EchoesOfSanguo.log('BATTLE', `${atk.card.name}(${atk.effectiveATK()}) → ${altDef.card.name} (retarget)`);
-            await deps.attack('opponent', plan.attackerZone, altTarget);
-            if (deps.checkWin()) return true;
-          }
-        }
-      }
+    if (await _executeAttack(deps, plan, ai.field.monsters, plr.field.monsters, plr.lp, bh)) {
+      return true;
     }
   }
-  return false;
-}
 
-function _findBestAvailableTarget(atk: FieldCard, plrMonsters: Array<FieldCard | null>, behavior: Required<AIBehavior>): number {
-  return aiBattlePickTarget(atk, plrMonsters, behavior);
+  return false;
 }
 
 export function aiBattlePickTarget(atk: FieldCard, plrMonsters: Array<FieldCard | null>, behavior: Required<AIBehavior>): number {
   const strategy = behavior.battleStrategy;
 
   if (strategy === 'aggressive') {
-    let bestTarget = -1, bestScore = -Infinity;
-    for (let dz = 0; dz < GAME_RULES.fieldZones; dz++) {
-      const def = plrMonsters[dz];
-      if (!def || def.cantBeAttacked) continue;
-      const defVal = aiCombatValue(def);
-      if (atk.effectiveATK() > defVal) {
-        // Prefer destroying effect monsters and high-ATK threats
-        let score = defVal;
-        if (def.card.effect) score += 500;
-        if (score > bestScore) { bestScore = score; bestTarget = dz; }
-      }
-    }
-    if (bestTarget !== -1) return bestTarget;
-    // aggressive: attack even unfavorably — pick weakest target to minimize damage
-    let weakest = -1, weakVal = Infinity;
-    for (let dz = 0; dz < GAME_RULES.fieldZones; dz++) {
-      const def = plrMonsters[dz];
-      if (!def || def.cantBeAttacked) continue;
-      const defVal = aiCombatValue(def);
-      if (defVal < weakVal) { weakVal = defVal; weakest = dz; }
-    }
-    return weakest;
+    return _pickAggressiveTarget(atk, plrMonsters);
   }
 
-  let bestTarget = -1, bestScore = -Infinity;
+  if (strategy === 'conservative') {
+    return _pickConservativeTarget(atk, plrMonsters);
+  }
+
+  return _pickSmartTarget(atk, plrMonsters);
+}
+
+function _pickAggressiveTarget(atk: FieldCard, plrMonsters: Array<FieldCard | null>): number {
+  let bestTarget = -1;
+  let bestScore = -Infinity;
+
   for (let dz = 0; dz < GAME_RULES.fieldZones; dz++) {
     const def = plrMonsters[dz];
     if (!def || def.cantBeAttacked) continue;
+
     const defVal = aiCombatValue(def);
-    if (atk.effectiveATK() > defVal) {
-      let score = defVal;
-      // Prioritize effect monsters — they're dangerous
-      if (def.card.effect) score += 500;
-      // Prioritize ATK-mode monsters (deal LP damage)
-      if (def.position === 'atk') score += 200;
-      // Bonus for indestructible check
-      if (def.indestructible) score = -Infinity;
-      if (score > bestScore) { bestScore = score; bestTarget = dz; }
+    if (atk.effectiveATK() <= defVal) continue;
+
+    const score = defVal + (def.card.effect ? 500 : 0);
+    if (score > bestScore) {
+      bestScore = score;
+      bestTarget = dz;
     }
   }
+
   if (bestTarget !== -1) return bestTarget;
 
-  if (strategy === 'conservative') return -1;
+  return _findWeakestTarget(atk, plrMonsters);
+}
 
-  // smart: also attack DEF-position targets safely, prefer face-down (reveal them)
-  let safeTarget = -1, safeScore = -Infinity;
+function _pickConservativeTarget(atk: FieldCard, plrMonsters: Array<FieldCard | null>): number {
+  let bestTarget = -1;
+  let bestScore = -Infinity;
+
+  for (let dz = 0; dz < GAME_RULES.fieldZones; dz++) {
+    const def = plrMonsters[dz];
+    if (!def || def.cantBeAttacked) continue;
+
+    const defVal = aiCombatValue(def);
+    if (atk.effectiveATK() <= defVal) continue;
+
+    let score = defVal;
+    if (def.card.effect) score += 500;
+    if (def.position === 'atk') score += 200;
+    if (def.indestructible) score = -Infinity;
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestTarget = dz;
+    }
+  }
+
+  return bestTarget;
+}
+
+function _pickSmartTarget(atk: FieldCard, plrMonsters: Array<FieldCard | null>): number {
+  const conservativeTarget = _pickConservativeTarget(atk, plrMonsters);
+  if (conservativeTarget !== -1) return conservativeTarget;
+
+  let safeTarget = -1;
+  let safeScore = -Infinity;
+
   for (let dz = 0; dz < GAME_RULES.fieldZones; dz++) {
     const def = plrMonsters[dz];
     if (!def || def.cantBeAttacked || def.position !== 'def') continue;
+    if (!def.faceDown) continue;
+
     const defVal = aiEffectiveDEF(def);
-    if (atk.effectiveATK() >= defVal) {
-      let score = 1000 - defVal; // prefer weaker DEF (easier kill)
-      // Face-down monsters are worth revealing
-      if (def.faceDown && atk.effectiveATK() >= AI_SCORE.PROBE_ATK_THRESHOLD) score += AI_SCORE.LOW_LP_SURVIVAL;
-      if (score > safeScore) { safeScore = score; safeTarget = dz; }
+    if (atk.effectiveATK() < defVal) continue;
+    if (atk.effectiveATK() < AI_SCORE.PROBE_ATK_THRESHOLD) continue;
+
+    const score = (1000 - defVal) + AI_SCORE.LOW_LP_SURVIVAL;
+    if (score > safeScore) {
+      safeScore = score;
+      safeTarget = dz;
     }
   }
+
   return safeTarget;
+}
+
+function _findWeakestTarget(atk: FieldCard, plrMonsters: Array<FieldCard | null>): number {
+  let weakest = -1;
+  let weakVal = Infinity;
+
+  for (let dz = 0; dz < GAME_RULES.fieldZones; dz++) {
+    const def = plrMonsters[dz];
+    if (!def || def.cantBeAttacked) continue;
+
+    const defVal = aiCombatValue(def);
+    if (defVal < weakVal) {
+      weakVal = defVal;
+      weakest = dz;
+    }
+  }
+
+  return weakest;
 }
 
 function _findSmartFusionChain(
