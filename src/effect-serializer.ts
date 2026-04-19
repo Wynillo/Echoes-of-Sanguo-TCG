@@ -95,95 +95,238 @@ function isFilterArg(s: string): boolean {
   return s.startsWith('{') && s.endsWith('}');
 }
 
+/** Serialize optional filter parameter */
+function serializeFilterIfExists(filter?: TcgCardEffectFilter): string {
+  return filter && !isCardFilterEmpty(filter) ? `,${serializeCardFilter(filter)}` : '';
+}
+
+/**
+ * Registry of action serializers organized by category.
+ * Each serializer handles converting a typed EffectDescriptor to string format.
+ * This replaces the 106-line switch statement with a more maintainable registry pattern.
+ */
+const ACTION_SERIALIZERS: Record<string, (a: TcgEffectDescriptor) => string> = {
+  // ── Damage & Healing ──────────────────────────────────
+  dealDamage: (a) => {
+    const desc = a as Extract<TcgEffectDescriptor, { type: 'dealDamage' }>;
+    return `dealDamage(${desc.target},${serializeValueExpr(desc.value)})`;
+  },
+  gainLP: (a) => {
+    const desc = a as Extract<TcgEffectDescriptor, { type: 'gainLP' }>;
+    return `gainLP(${desc.target},${serializeValueExpr(desc.value)})`;
+  },
+
+  // ── Card Draw ─────────────────────────────────────────
+  draw: (a) => {
+    const desc = a as Extract<TcgEffectDescriptor, { type: 'draw' }>;
+    return `draw(${desc.target},${desc.count})`;
+  },
+  drawThenDiscard: (a) => {
+    const desc = a as Extract<TcgEffectDescriptor, { type: 'drawThenDiscard' }>;
+    return `drawThenDiscard(${desc.drawCount},${desc.discardCount})`;
+  },
+  peekTopCard: () => 'peekTopCard()',
+
+  // ── Field Buffs/Debuffs ───────────────────────────────
+  buffField: (a) => {
+    const desc = a as Extract<TcgEffectDescriptor, { type: 'buffField' }>;
+    return `buffField(${desc.value}${serializeFilterIfExists(desc.filter)})`;
+  },
+  tempBuffField: (a) => {
+    const desc = a as Extract<TcgEffectDescriptor, { type: 'tempBuffField' }>;
+    return `tempBuffField(${desc.value}${serializeFilterIfExists(desc.filter)})`;
+  },
+  debuffField: (a) => {
+    const desc = a as Extract<TcgEffectDescriptor, { type: 'debuffField' }>;
+    return `debuffField(${desc.atkD},${desc.defD})`;
+  },
+  tempDebuffField: (a) => {
+    const desc = a as Extract<TcgEffectDescriptor, { type: 'tempDebuffField' }>;
+    return `tempDebuffField(${desc.atkD}${desc.defD !== undefined ? `,${desc.defD}` : ''})`;
+  },
+
+  // ── Stat Bonuses ──────────────────────────────────────
+  tempAtkBonus: (a) => {
+    const desc = a as Extract<TcgEffectDescriptor, { type: 'tempAtkBonus' }>;
+    return `tempAtkBonus(${desc.target},${desc.value})`;
+  },
+  permAtkBonus: (a) => {
+    const desc = a as Extract<TcgEffectDescriptor, { type: 'permAtkBonus' }>;
+    return `permAtkBonus(${desc.target},${desc.value}${serializeFilterIfExists(desc.filter)})`;
+  },
+  tempDefBonus: (a) => {
+    const desc = a as Extract<TcgEffectDescriptor, { type: 'tempDefBonus' }>;
+    return `tempDefBonus(${desc.target},${desc.value})`;
+  },
+  permDefBonus: (a) => {
+    const desc = a as Extract<TcgEffectDescriptor, { type: 'permDefBonus' }>;
+    return `permDefBonus(${desc.target},${desc.value})`;
+  },
+  halveAtk: (a) => {
+    const desc = a as Extract<TcgEffectDescriptor, { type: 'halveAtk' }>;
+    return `halveAtk(${desc.target})`;
+  },
+  doubleAtk: (a) => {
+    const desc = a as Extract<TcgEffectDescriptor, { type: 'doubleAtk' }>;
+    return `doubleAtk(${desc.target})`;
+  },
+  swapAtkDef: (a) => {
+    const desc = a as Extract<TcgEffectDescriptor, { type: 'swapAtkDef' }>;
+    return `swapAtkDef(${desc.side})`;
+  },
+
+  // ── Bounce / Return to Hand ───────────────────────────
+  bounceStrongestOpp: () => 'bounceStrongestOpp()',
+  bounceAttacker: () => 'bounceAttacker()',
+  bounceAllOppMonsters: () => 'bounceAllOppMonsters()',
+  bounceOppHandToDeck: (a) => {
+    const desc = a as Extract<TcgEffectDescriptor, { type: 'bounceOppHandToDeck' }>;
+    return `bounceOppHandToDeck(${desc.count})`;
+  },
+
+  // ── Search / Add to Hand ──────────────────────────────
+  searchDeckToHand: (a) => {
+    const desc = a as Extract<TcgEffectDescriptor, { type: 'searchDeckToHand' }>;
+    return `searchDeckToHand(${serializeCardFilter(desc.filter)})`;
+  },
+
+  // ── Destruction / Removal ─────────────────────────────
+  destroyAttacker: () => 'destroyAttacker()',
+  destroySummonedIf: (a) => {
+    const desc = a as Extract<TcgEffectDescriptor, { type: 'destroySummonedIf' }>;
+    return `destroySummonedIf(${desc.minAtk})`;
+  },
+  destroyAllOpp: () => 'destroyAllOpp()',
+  destroyAll: () => 'destroyAll()',
+  destroyWeakestOpp: () => 'destroyWeakestOpp()',
+  destroyStrongestOpp: () => 'destroyStrongestOpp()',
+  destroyByFilter: (a) => {
+    const desc = a as Extract<TcgEffectDescriptor, { type: 'destroyByFilter' }>;
+    return `destroyByFilter(${desc.mode}${desc.side ? `,${desc.side}` : ''}${desc.filter ? `,${serializeCardFilter(desc.filter)}` : ''})`;
+  },
+  destroyAndDamageBoth: (a) => {
+    const desc = a as Extract<TcgEffectDescriptor, { type: 'destroyAndDamageBoth' }>;
+    return `destroyAndDamageBoth(${desc.side})`;
+  },
+  destroyOppSpellTrap: () => 'destroyOppSpellTrap()',
+  destroyAllOppSpellTraps: () => 'destroyAllOppSpellTraps()',
+  destroyAllSpellTraps: () => 'destroyAllSpellTraps()',
+  destroyOppFieldSpell: () => 'destroyOppFieldSpell()',
+
+  // ── Graveyard ─────────────────────────────────────────
+  sendTopCardsToGrave: (a) => {
+    const desc = a as Extract<TcgEffectDescriptor, { type: 'sendTopCardsToGrave' }>;
+    return `sendTopCardsToGrave(${desc.count})`;
+  },
+  sendTopCardsToGraveOpp: (a) => {
+    const desc = a as Extract<TcgEffectDescriptor, { type: 'sendTopCardsToGraveOpp' }>;
+    return `sendTopCardsToGraveOpp(${desc.count})`;
+  },
+  salvageFromGrave: (a) => {
+    const desc = a as Extract<TcgEffectDescriptor, { type: 'salvageFromGrave' }>;
+    return `salvageFromGrave(${serializeCardFilter(desc.filter)})`;
+  },
+  recycleFromGraveToDeck: (a) => {
+    const desc = a as Extract<TcgEffectDescriptor, { type: 'recycleFromGraveToDeck' }>;
+    return `recycleFromGraveToDeck(${serializeCardFilter(desc.filter)})`;
+  },
+  shuffleGraveIntoDeck: () => 'shuffleGraveIntoDeck()',
+  reviveFromGrave: () => 'reviveFromGrave()',
+  reviveFromEitherGrave: () => 'reviveFromEitherGrave()',
+
+  // ── Summon / Hand Management ──────────────────────────
+  specialSummonFromHand: (a) => {
+    const desc = a as Extract<TcgEffectDescriptor, { type: 'specialSummonFromHand' }>;
+    return `specialSummonFromHand(${desc.filter ? serializeCardFilter(desc.filter) : ''})`;
+  },
+  specialSummonFromDeck: (a) => {
+    const desc = a as Extract<TcgEffectDescriptor, { type: 'specialSummonFromDeck' }>;
+    let s = `specialSummonFromDeck(${serializeCardFilter(desc.filter)}`;
+    if (desc.faceDown) s += ',faceDown';
+    if (desc.position && desc.position !== 'atk') s += `,${desc.position}`;
+    return s + ')';
+  },
+  createTokens: (a) => {
+    const desc = a as Extract<TcgEffectDescriptor, { type: 'createTokens' }>;
+    return `createTokens(${desc.tokenId},${desc.count},${desc.position})`;
+  },
+  excavateAndSummon: (a) => {
+    const desc = a as Extract<TcgEffectDescriptor, { type: 'excavateAndSummon' }>;
+    return `excavateAndSummon(${desc.count},${desc.maxLevel})`;
+  },
+  discardFromHand: (a) => {
+    const desc = a as Extract<TcgEffectDescriptor, { type: 'discardFromHand' }>;
+    return `discardFromHand(${desc.count})`;
+  },
+  discardOppHand: (a) => {
+    const desc = a as Extract<TcgEffectDescriptor, { type: 'discardOppHand' }>;
+    return `discardOppHand(${desc.count})`;
+  },
+  discardEntireHand: (a) => {
+    const desc = a as Extract<TcgEffectDescriptor, { type: 'discardEntireHand' }>;
+    return `discardEntireHand(${desc.target})`;
+  },
+
+  // ── Deck Manipulation ─────────────────────────────────
+  shuffleDeck: () => 'shuffleDeck()',
+  millOpp: (a) => {
+    const desc = a as Extract<TcgEffectDescriptor, { type: 'millOpp' }>;
+    return `millOpp(${desc.count})`;
+  },
+  banishOppGy: () => 'banishOppGy()',
+
+  // ── Position / State Changes ──────────────────────────
+  changePositionOpp: () => 'changePositionOpp()',
+  setFaceDown: () => 'setFaceDown()',
+  flipAllOppFaceDown: () => 'flipAllOppFaceDown()',
+  tributeSelf: () => 'tributeSelf()',
+  preventAttacks: (a) => {
+    const desc = a as Extract<TcgEffectDescriptor, { type: 'preventAttacks' }>;
+    return `preventAttacks(${desc.turns})`;
+  },
+
+  // ── Control / Negation ────────────────────────────────
+  cancelAttack: () => 'cancelAttack()',
+  cancelEffect: () => 'cancelEffect()',
+  preventBattleDamage: () => 'preventBattleDamage()',
+  skipOppDraw: () => 'skipOppDraw()',
+  negateAttack: () => 'negateAttack()',
+  negate: () => 'negate',
+  reflectBattleDamage: () => 'reflectBattleDamage()',
+  reflectDamage: (a) => {
+    const desc = a as Extract<TcgEffectDescriptor, { type: 'reflectDamage' }>;
+    return `reflectDamage(${desc.multiplier})`;
+  },
+  stealMonster: () => 'stealMonster()',
+  stealMonsterTemp: () => 'stealMonsterTemp()',
+
+  // ── Passive Abilities ─────────────────────────────────
+  passive_piercing: () => 'passive_piercing()',
+  passive_untargetable: () => 'passive_untargetable()',
+  passive_directAttack: () => 'passive_directAttack()',
+  passive_vsAttrBonus: (a) => {
+    const desc = a as Extract<TcgEffectDescriptor, { type: 'passive_vsAttrBonus' }>;
+    return `passive_vsAttrBonus(${desc.attr},${desc.atk})`;
+  },
+  passive_phoenixRevival: () => 'passive_phoenixRevival()',
+  passive_indestructible: () => 'passive_indestructible()',
+  passive_effectImmune: () => 'passive_effectImmune()',
+  passive_cantBeAttacked: () => 'passive_cantBeAttacked()',
+  passive_negateTraps: () => 'passive_negateTraps()',
+  passive_negateSpells: () => 'passive_negateSpells()',
+  passive_negateMonsterEffects: () => 'passive_negateMonsterEffects()',
+
+  // ── Special / Utility ─────────────────────────────────
+  gameReset: () => 'gameReset()',
+};
+
 function serializeAction(a: TcgEffectDescriptor): string {
-  switch (a.type) {
-    case 'dealDamage':              return `dealDamage(${a.target},${serializeValueExpr(a.value)})`;
-    case 'gainLP':                  return `gainLP(${a.target},${serializeValueExpr(a.value)})`;
-    case 'draw':                    return `draw(${a.target},${a.count})`;
-    case 'buffField':               return `buffField(${a.value}${a.filter && !isCardFilterEmpty(a.filter) ? `,${serializeCardFilter(a.filter)}` : ''})`;
-    case 'tempBuffField':           return `tempBuffField(${a.value}${a.filter && !isCardFilterEmpty(a.filter) ? `,${serializeCardFilter(a.filter)}` : ''})`;
-    case 'debuffField':             return `debuffField(${a.atkD},${a.defD})`;
-    case 'tempDebuffField':         return `tempDebuffField(${a.atkD}${a.defD !== undefined ? `,${a.defD}` : ''})`;
-    case 'bounceStrongestOpp':      return 'bounceStrongestOpp()';
-    case 'bounceAttacker':          return 'bounceAttacker()';
-    case 'bounceAllOppMonsters':    return 'bounceAllOppMonsters()';
-    case 'searchDeckToHand':        return `searchDeckToHand(${serializeCardFilter(a.filter)})`;
-    case 'tempAtkBonus':            return `tempAtkBonus(${a.target},${a.value})`;
-    case 'permAtkBonus':            return `permAtkBonus(${a.target},${a.value}${a.filter && !isCardFilterEmpty(a.filter) ? `,${serializeCardFilter(a.filter)}` : ''})`;
-    case 'tempDefBonus':            return `tempDefBonus(${a.target},${a.value})`;
-    case 'permDefBonus':            return `permDefBonus(${a.target},${a.value})`;
-    case 'reviveFromGrave':         return 'reviveFromGrave()';
-    case 'cancelAttack':            return 'cancelAttack()';
-    case 'cancelEffect':            return 'cancelEffect()';
-    case 'destroyAttacker':         return 'destroyAttacker()';
-    case 'destroySummonedIf':       return `destroySummonedIf(${a.minAtk})`;
-    case 'destroyAllOpp':           return 'destroyAllOpp()';
-    case 'destroyAll':              return 'destroyAll()';
-    case 'destroyWeakestOpp':       return 'destroyWeakestOpp()';
-    case 'destroyStrongestOpp':     return 'destroyStrongestOpp()';
-    case 'sendTopCardsToGrave':     return `sendTopCardsToGrave(${a.count})`;
-    case 'sendTopCardsToGraveOpp':  return `sendTopCardsToGraveOpp(${a.count})`;
-    case 'salvageFromGrave':        return `salvageFromGrave(${serializeCardFilter(a.filter)})`;
-    case 'recycleFromGraveToDeck':  return `recycleFromGraveToDeck(${serializeCardFilter(a.filter)})`;
-    case 'shuffleGraveIntoDeck':    return 'shuffleGraveIntoDeck()';
-    case 'shuffleDeck':             return 'shuffleDeck()';
-    case 'peekTopCard':             return 'peekTopCard()';
-    case 'specialSummonFromHand':   return `specialSummonFromHand(${a.filter ? serializeCardFilter(a.filter) : ''})`;
-    case 'discardFromHand':         return `discardFromHand(${a.count})`;
-    case 'discardOppHand':          return `discardOppHand(${a.count})`;
-    case 'passive_piercing':        return 'passive_piercing()';
-    case 'passive_untargetable':    return 'passive_untargetable()';
-    case 'passive_directAttack':    return 'passive_directAttack()';
-    case 'passive_vsAttrBonus':     return `passive_vsAttrBonus(${a.attr},${a.atk})`;
-    case 'passive_phoenixRevival':  return 'passive_phoenixRevival()';
-    case 'passive_indestructible':  return 'passive_indestructible()';
-    case 'passive_effectImmune':    return 'passive_effectImmune()';
-    case 'passive_cantBeAttacked':  return 'passive_cantBeAttacked()';
-    case 'destroyOppSpellTrap':     return 'destroyOppSpellTrap()';
-    case 'destroyAllOppSpellTraps': return 'destroyAllOppSpellTraps()';
-    case 'destroyAllSpellTraps':    return 'destroyAllSpellTraps()';
-    case 'destroyOppFieldSpell':    return 'destroyOppFieldSpell()';
-    case 'changePositionOpp':       return 'changePositionOpp()';
-    case 'setFaceDown':             return 'setFaceDown()';
-    case 'flipAllOppFaceDown':      return 'flipAllOppFaceDown()';
-    case 'destroyByFilter':         return `destroyByFilter(${a.mode}${a.side ? `,${a.side}` : ''}${a.filter ? `,${serializeCardFilter(a.filter)}` : ''})`;
-    case 'halveAtk':                return `halveAtk(${a.target})`;
-    case 'doubleAtk':               return `doubleAtk(${a.target})`;
-    case 'swapAtkDef':              return `swapAtkDef(${a.side})`;
-    case 'specialSummonFromDeck': {
-      let s = `specialSummonFromDeck(${serializeCardFilter(a.filter)}`;
-      if (a.faceDown) s += ',faceDown';
-      if (a.position && a.position !== 'atk') s += `,${a.position}`;
-      return s + ')';
-    }
-    case 'reflectBattleDamage':     return 'reflectBattleDamage()';
-    case 'stealMonster':            return 'stealMonster()';
-    case 'skipOppDraw':             return 'skipOppDraw()';
-    case 'discardEntireHand':       return `discardEntireHand(${a.target})`;
-    case 'destroyAndDamageBoth':    return `destroyAndDamageBoth(${a.side})`;
-    case 'preventBattleDamage':     return 'preventBattleDamage()';
-    case 'passive_negateTraps':     return 'passive_negateTraps()';
-    case 'passive_negateSpells':    return 'passive_negateSpells()';
-    case 'passive_negateMonsterEffects': return 'passive_negateMonsterEffects()';
-    case 'stealMonsterTemp':        return 'stealMonsterTemp()';
-    case 'reviveFromEitherGrave':   return 'reviveFromEitherGrave()';
-    case 'drawThenDiscard':         return `drawThenDiscard(${a.drawCount},${a.discardCount})`;
-    case 'bounceOppHandToDeck':     return `bounceOppHandToDeck(${a.count})`;
-    case 'tributeSelf':             return 'tributeSelf()';
-    case 'preventAttacks':          return `preventAttacks(${a.turns})`;
-    case 'createTokens':            return `createTokens(${a.tokenId},${a.count},${a.position})`;
-    case 'gameReset':               return 'gameReset()';
-    case 'excavateAndSummon':       return `excavateAndSummon(${a.count},${a.maxLevel})`;
-    case 'millOpp':                 return `millOpp(${a.count})`;
-    case 'banishOppGy':             return 'banishOppGy()';
-    case 'negateAttack':            return 'negateAttack()';
-    case 'reflectDamage':           return `reflectDamage(${a.multiplier})`;
-    case 'negate':                  return 'negate';
-    default: {
-      const unknown = a as { type: string };
-      throw new Error(`Unknown effect action type: ${unknown.type}`);
-    }
+  const serializer = ACTION_SERIALIZERS[a.type];
+  if (!serializer) {
+    const unknown = a as { type: string };
+    throw new Error(`Unknown effect action type: ${unknown.type}`);
   }
+  return serializer(a);
 }
 
 // ── Action deserialization ────────────────────────────────────
