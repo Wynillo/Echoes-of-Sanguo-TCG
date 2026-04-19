@@ -479,52 +479,40 @@ function shouldSkipBattlePhase(
   return isWinning && !canKill;
 }
 
-function _retargetOrGoDirect(
+/**
+ * Unified handler for direct attacks and retargeting when original target is destroyed.
+ * Consolidates duplicate logic from removed helpers.
+ *
+ * @param reason - Attack context for logging: 'direct' (planned), 'retarget' (target destroyed), 'fallback' (direct blocked)
+ */
+async function _executeDirectOrRetarget(
   deps: AIDependencies,
   atk: FieldCard,
   attackerZone: number,
   plrMonsters: Array<FieldCard | null>,
-  bh: Required<AIBehavior>
-): boolean {
-  const plrHasMonsters = plrMonsters.some(m => m !== null);
-
-  if (!plrHasMonsters) {
-    EchoesOfSanguo.log('BATTLE', `${atk.card.name} → target destroyed, going direct!`);
-    deps.attackDirect('opponent', attackerZone);
-    return true;
-  }
-
-  const altTarget = aiBattlePickTarget(atk, plrMonsters, bh);
-  if (altTarget === -1) {
-    return false;
-  }
-
-  const altDef = plrMonsters[altTarget]!;
-  EchoesOfSanguo.log('BATTLE', `${atk.card.name}(${atk.effectiveATK()}) → ${altDef.card.name} (retarget)`);
-  deps.attack('opponent', attackerZone, altTarget);
-  return true;
-}
-
-async function _executeDirectAttack(
-  deps: AIDependencies,
-  atk: FieldCard,
-  attackerZone: number,
-  plrMonsters: Array<FieldCard | null>,
-  bh: Required<AIBehavior>
+  bh: Required<AIBehavior>,
+  reason: 'direct' | 'retarget' | 'fallback' = 'direct'
 ): Promise<boolean> {
   const plrHasMonsters = plrMonsters.some(m => m !== null);
-  
+
   if (!plrHasMonsters || atk.canDirectAttack) {
-    EchoesOfSanguo.log('BATTLE', `${atk.card.name}(${atk.effectiveATK()}) → Direct attack!${atk.canDirectAttack ? ' (canDirectAttack)' : ''}`);
+    const logReason =
+      reason === 'retarget'
+        ? 'target destroyed, going direct!'
+        : atk.canDirectAttack
+        ? 'Direct attack! (canDirectAttack)'
+        : 'Direct attack!';
+    EchoesOfSanguo.log('BATTLE', `${atk.card.name}(${atk.effectiveATK()}) → ${logReason}`);
     await deps.attackDirect('opponent', attackerZone);
     return true;
   }
 
-  const fallbackTarget = aiBattlePickTarget(atk, plrMonsters, bh);
-  if (fallbackTarget !== -1) {
-    const def = plrMonsters[fallbackTarget]!;
-    EchoesOfSanguo.log('BATTLE', `${atk.card.name}(${atk.effectiveATK()}) → ${def.card.name} (fallback target)`);
-    await deps.attack('opponent', attackerZone, fallbackTarget);
+  const altTarget = aiBattlePickTarget(atk, plrMonsters, bh);
+  if (altTarget !== -1) {
+    const def = plrMonsters[altTarget]!;
+    const logLabel = reason === 'retarget' ? 'retarget' : 'fallback target';
+    EchoesOfSanguo.log('BATTLE', `${atk.card.name}(${atk.effectiveATK()}) → ${def.card.name} (${logLabel})`);
+    await deps.attack('opponent', attackerZone, altTarget);
     return true;
   }
 
@@ -547,7 +535,7 @@ async function _executeAttack(
   await deps.delay(500);
 
   if (plan.targetZone === -1) {
-    const attackMade = await _executeDirectAttack(deps, atk, plan.attackerZone, plrMonsters, bh);
+    const attackMade = await _executeDirectOrRetarget(deps, atk, plan.attackerZone, plrMonsters, bh, 'direct');
     return attackMade && deps.checkWin();
   }
 
@@ -559,7 +547,7 @@ async function _executeAttack(
     return deps.checkWin();
   }
 
-  const attackMade = _retargetOrGoDirect(deps, atk, plan.attackerZone, plrMonsters, bh);
+  const attackMade = await _executeDirectOrRetarget(deps, atk, plan.attackerZone, plrMonsters, bh, 'retarget');
   return attackMade && deps.checkWin();
 }
 
