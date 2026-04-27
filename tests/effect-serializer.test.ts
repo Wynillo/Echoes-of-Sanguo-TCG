@@ -126,7 +126,7 @@ describe('effect-serializer', () => {
         actions: [{ type: 'negate' }],
       };
       const str = serializeTcgEffect(block);
-      expect(str).toBe('onAttack:negate');
+      expect(str).toBe('onAttack:negate()');
       expect(deserializeTcgEffect(str)).toEqual(block);
     });
 
