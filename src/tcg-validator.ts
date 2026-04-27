@@ -63,7 +63,9 @@ export async function validateTcgArchive(zip: JSZip): Promise<ValidationResult &
       const match = localeFile.match(LOCALE_FILE_REGEX);
       const lang = match?.[1] ?? '';
       try {
-        const localeJson = await zip.file(localeFile)!.async('string');
+        const localeFileRef = zip.file(localeFile);
+        if (!localeFileRef) { warnings.push(`${localeFile}: file not found in archive`); continue; }
+        const localeJson = await localeFileRef.async('string');
         const localeData = JSON.parse(localeJson);
         if (typeof localeData === 'object' && localeData !== null && !Array.isArray(localeData)) {
           localeOverrides.set(lang, localeData as Record<string, string>);
@@ -94,7 +96,9 @@ export async function validateTcgArchive(zip: JSZip): Promise<ValidationResult &
     const lang = match?.[1]?.replace('_', '') ?? '';
 
     try {
-      const descJson = await zip.file(oppDescFile)!.async('string');
+      const oppFileRef = zip.file(oppDescFile);
+      if (!oppFileRef) { errors.push(`${oppDescFile}: file not found in archive`); continue; }
+      const descJson = await oppFileRef.async('string');
       const descData = JSON.parse(descJson);
       const descResult = validateTcgOpponentDescriptions(descData);
       if (!descResult.valid) {

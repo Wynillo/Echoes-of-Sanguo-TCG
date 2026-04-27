@@ -23,7 +23,7 @@ function validateSingleCard(card: unknown, index: number): string[] {
   // level: required positive int (extensible) monsters/fusions, optional (ignored) for spells/traps
   const needsLevel = c.type === TCG_TYPE_MONSTER || c.type === TCG_TYPE_FUSION;
   if (needsLevel) {
-    if (typeof c.level !== 'number' || !Number.isInteger(c.level)) {
+    if (typeof c.level !== 'number' || !Number.isInteger(c.level) || c.level <= 0) {
       errors.push(`${prefix}.level: must be a positive integer, got ${c.level}`);
     }
   }

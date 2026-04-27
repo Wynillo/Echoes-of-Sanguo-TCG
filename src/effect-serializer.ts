@@ -60,16 +60,16 @@ function deserializeCardFilter(s: string): TcgCardEffectFilter {
   for (const pair of inner.split(',')) {
     const [key, val] = pair.split(/[=:]/);
     switch (key.trim()) {
-      case 'r':        filter.race = parseInt(val); break;
-      case 'a':        filter.attr = parseInt(val); break;
-      case 'ct':       filter.cardType = parseInt(val); break;
+      case 'r':        filter.race = parseInt(val, 10); break;
+      case 'a':        filter.attr = parseInt(val, 10); break;
+      case 'ct':       filter.cardType = parseInt(val, 10); break;
       case 'id':       filter.cardId = val.trim(); break;
-      case 'maxAtk':   filter.maxAtk = parseInt(val); break;
-      case 'minAtk':   filter.minAtk = parseInt(val); break;
-      case 'maxDef':   filter.maxDef = parseInt(val); break;
-      case 'maxLevel': filter.maxLevel = parseInt(val); break;
-      case 'minLevel': filter.minLevel = parseInt(val); break;
-      case 'rnd':      filter.random = parseInt(val); break;
+      case 'maxAtk':   filter.maxAtk = parseInt(val, 10); break;
+      case 'minAtk':   filter.minAtk = parseInt(val, 10); break;
+      case 'maxDef':   filter.maxDef = parseInt(val, 10); break;
+      case 'maxLevel': filter.maxLevel = parseInt(val, 10); break;
+      case 'minLevel': filter.minLevel = parseInt(val, 10); break;
+      case 'rnd':      filter.random = parseInt(val, 10); break;
       default: throw new Error(`Unknown CardFilter key: ${key}`);
     }
   }
@@ -290,8 +290,8 @@ const ACTION_SERIALIZERS: Record<string, (a: TcgEffectDescriptor) => string> = {
   cancelEffect: () => 'cancelEffect()',
   preventBattleDamage: () => 'preventBattleDamage()',
   skipOppDraw: () => 'skipOppDraw()',
-  negateAttack: () => 'negateAttack()',
-  negate: () => 'negate',
+    negateAttack: () => 'negateAttack()',
+    negate: () => 'negate()',
   reflectBattleDamage: () => 'reflectBattleDamage()',
   reflectDamage: (a) => {
     const desc = a as Extract<TcgEffectDescriptor, { type: 'reflectDamage' }>;
@@ -365,22 +365,22 @@ function deserializeAction(actionStr: string): TcgEffectDescriptor {
     case 'gainLP':
       return { type: 'gainLP', target: args[0] as 'opponent' | 'self', value: deserializeValueExpr(args[1]) };
     case 'draw':
-      return { type: 'draw', target: args[0] as 'self' | 'opponent', count: parseInt(args[1]) };
+      return { type: 'draw', target: args[0] as 'self' | 'opponent', count: parseInt(args[1], 10) };
     case 'buffField': {
-      const desc: TcgEffectDescriptor = { type: 'buffField', value: parseInt(args[0]) } as TcgEffectDescriptor & { value: number };
+      const desc: TcgEffectDescriptor = { type: 'buffField', value: parseInt(args[0], 10) } as TcgEffectDescriptor & { value: number };
       if (args.length > 1 && isFilterArg(args[1])) (desc as TcgEffectDescriptor & { filter?: TcgCardEffectFilter }).filter = deserializeCardFilter(args[1]);
       return desc;
     }
     case 'tempBuffField': {
-      const desc: TcgEffectDescriptor = { type: 'tempBuffField', value: parseInt(args[0]) } as TcgEffectDescriptor & { value: number };
+      const desc: TcgEffectDescriptor = { type: 'tempBuffField', value: parseInt(args[0], 10) } as TcgEffectDescriptor & { value: number };
       if (args.length > 1 && isFilterArg(args[1])) (desc as TcgEffectDescriptor & { filter?: TcgCardEffectFilter }).filter = deserializeCardFilter(args[1]);
       return desc;
     }
     case 'debuffField':
-      return { type: 'debuffField', atkD: parseInt(args[0]), defD: parseInt(args[1]) };
+      return { type: 'debuffField', atkD: parseInt(args[0], 10), defD: parseInt(args[1], 10) };
     case 'tempDebuffField': {
-      const desc = { type: 'tempDebuffField' as const, atkD: parseInt(args[0]) } as { type: 'tempDebuffField'; atkD: number; defD?: number };
-      if (args.length > 1) desc.defD = parseInt(args[1]);
+      const desc = { type: 'tempDebuffField' as const, atkD: parseInt(args[0], 10) } as { type: 'tempDebuffField'; atkD: number; defD?: number };
+      if (args.length > 1) desc.defD = parseInt(args[1], 10);
       return desc;
     }
     case 'bounceStrongestOpp':      return { type: 'bounceStrongestOpp' };
@@ -389,27 +389,27 @@ function deserializeAction(actionStr: string): TcgEffectDescriptor {
     case 'searchDeckToHand':
       return { type: 'searchDeckToHand', filter: args.length > 0 && args[0] !== '' && isFilterArg(args[0]) ? deserializeCardFilter(args[0]) : {} };
     case 'tempAtkBonus':
-      return { type: 'tempAtkBonus', target: asStatTarget(args[0]), value: parseInt(args[1]) };
+      return { type: 'tempAtkBonus', target: asStatTarget(args[0]), value: parseInt(args[1], 10) };
     case 'permAtkBonus': {
-      const desc = { type: 'permAtkBonus' as const, target: asStatTarget(args[0]) as TcgStatTarget, value: parseInt(args[1]) } as { type: 'permAtkBonus'; target: TcgStatTarget; value: number; filter?: TcgCardEffectFilter };
+      const desc = { type: 'permAtkBonus' as const, target: asStatTarget(args[0]) as TcgStatTarget, value: parseInt(args[1], 10) } as { type: 'permAtkBonus'; target: TcgStatTarget; value: number; filter?: TcgCardEffectFilter };
       if (args.length > 2 && isFilterArg(args[2])) desc.filter = deserializeCardFilter(args[2]);
       return desc;
     }
     case 'tempDefBonus':
-      return { type: 'tempDefBonus', target: asStatTarget(args[0]), value: parseInt(args[1]) };
+      return { type: 'tempDefBonus', target: asStatTarget(args[0]), value: parseInt(args[1], 10) };
     case 'permDefBonus':
-      return { type: 'permDefBonus', target: asStatTarget(args[0]), value: parseInt(args[1]) };
+      return { type: 'permDefBonus', target: asStatTarget(args[0]), value: parseInt(args[1], 10) };
     case 'reviveFromGrave':         return { type: 'reviveFromGrave' };
     case 'cancelAttack':            return { type: 'cancelAttack' };
     case 'cancelEffect':            return { type: 'cancelEffect' };
     case 'destroyAttacker':         return { type: 'destroyAttacker' };
-    case 'destroySummonedIf':       return { type: 'destroySummonedIf', minAtk: parseInt(args[0]) };
+    case 'destroySummonedIf':       return { type: 'destroySummonedIf', minAtk: parseInt(args[0], 10) };
     case 'destroyAllOpp':           return { type: 'destroyAllOpp' };
     case 'destroyAll':              return { type: 'destroyAll' };
     case 'destroyWeakestOpp':       return { type: 'destroyWeakestOpp' };
     case 'destroyStrongestOpp':     return { type: 'destroyStrongestOpp' };
-    case 'sendTopCardsToGrave':     return { type: 'sendTopCardsToGrave', count: parseInt(args[0]) };
-    case 'sendTopCardsToGraveOpp':  return { type: 'sendTopCardsToGraveOpp', count: parseInt(args[0]) };
+    case 'sendTopCardsToGrave':     return { type: 'sendTopCardsToGrave', count: parseInt(args[0], 10) };
+    case 'sendTopCardsToGraveOpp':  return { type: 'sendTopCardsToGraveOpp', count: parseInt(args[0], 10) };
     case 'salvageFromGrave':        return { type: 'salvageFromGrave', filter: args.length > 0 && args[0] !== '' && isFilterArg(args[0]) ? deserializeCardFilter(args[0]) : {} };
     case 'recycleFromGraveToDeck':  return { type: 'recycleFromGraveToDeck', filter: args.length > 0 && args[0] !== '' && isFilterArg(args[0]) ? deserializeCardFilter(args[0]) : {} };
     case 'shuffleGraveIntoDeck':    return { type: 'shuffleGraveIntoDeck' };
@@ -420,13 +420,13 @@ function deserializeAction(actionStr: string): TcgEffectDescriptor {
       if (args.length > 0 && args[0] !== '' && isFilterArg(args[0])) desc.filter = deserializeCardFilter(args[0]);
       return desc;
     }
-    case 'discardFromHand':         return { type: 'discardFromHand', count: parseInt(args[0]) };
-    case 'discardOppHand':          return { type: 'discardOppHand', count: parseInt(args[0]) };
+    case 'discardFromHand':         return { type: 'discardFromHand', count: parseInt(args[0], 10) };
+    case 'discardOppHand':          return { type: 'discardOppHand', count: parseInt(args[0], 10) };
     case 'passive_piercing':        return { type: 'passive_piercing' };
     case 'passive_untargetable':    return { type: 'passive_untargetable' };
     case 'passive_directAttack':    return { type: 'passive_directAttack' };
     case 'passive_vsAttrBonus':
-      return { type: 'passive_vsAttrBonus', attr: parseInt(args[0]), atk: parseInt(args[1]) };
+      return { type: 'passive_vsAttrBonus', attr: parseInt(args[0], 10), atk: parseInt(args[1], 10) };
     case 'passive_phoenixRevival':  return { type: 'passive_phoenixRevival' };
     case 'passive_indestructible':  return { type: 'passive_indestructible' };
     case 'passive_effectImmune':    return { type: 'passive_effectImmune' };
@@ -467,17 +467,17 @@ function deserializeAction(actionStr: string): TcgEffectDescriptor {
     case 'passive_negateMonsterEffects': return { type: 'passive_negateMonsterEffects' };
     case 'stealMonsterTemp':        return { type: 'stealMonsterTemp' };
     case 'reviveFromEitherGrave':   return { type: 'reviveFromEitherGrave' };
-    case 'drawThenDiscard':         return { type: 'drawThenDiscard', drawCount: parseInt(args[0]), discardCount: parseInt(args[1]) };
-    case 'bounceOppHandToDeck':     return { type: 'bounceOppHandToDeck', count: parseInt(args[0]) };
+    case 'drawThenDiscard':         return { type: 'drawThenDiscard', drawCount: parseInt(args[0], 10), discardCount: parseInt(args[1], 10) };
+    case 'bounceOppHandToDeck':     return { type: 'bounceOppHandToDeck', count: parseInt(args[0], 10) };
     case 'tributeSelf':             return { type: 'tributeSelf' };
-    case 'preventAttacks':          return { type: 'preventAttacks', turns: parseInt(args[0]) };
-    case 'createTokens':            return { type: 'createTokens', tokenId: args[0], count: parseInt(args[1]), position: args[2] as 'atk' | 'def' };
+    case 'preventAttacks':          return { type: 'preventAttacks', turns: parseInt(args[0], 10) };
+    case 'createTokens':            return { type: 'createTokens', tokenId: args[0], count: parseInt(args[1], 10), position: args[2] as 'atk' | 'def' };
     case 'gameReset':               return { type: 'gameReset' };
-    case 'excavateAndSummon':       return { type: 'excavateAndSummon', count: parseInt(args[0]), maxLevel: parseInt(args[1]) };
-    case 'millOpp':                 return { type: 'millOpp', count: parseInt(args[0]) };
+    case 'excavateAndSummon':       return { type: 'excavateAndSummon', count: parseInt(args[0], 10), maxLevel: parseInt(args[1], 10) };
+    case 'millOpp':                 return { type: 'millOpp', count: parseInt(args[0], 10) };
     case 'banishOppGy':             return { type: 'banishOppGy' };
     case 'negateAttack':            return { type: 'negateAttack' };
-    case 'reflectDamage':           return { type: 'reflectDamage', multiplier: parseInt(args[0]) };
+    case 'reflectDamage':           return { type: 'reflectDamage', multiplier: parseInt(args[0], 10) };
     case 'negate':                  return { type: 'negate' };
     default:
       throw new Error(`Unknown action type: ${type}`);
@@ -501,8 +501,8 @@ function deserializeCost(costStr: string): TcgEffectCost {
   for (const pair of inner.split(',')) {
     const [key, val] = pair.split('=');
     switch (key.trim()) {
-      case 'lp':          cost.lp = parseInt(val); break;
-      case 'discard':     cost.discard = parseInt(val); break;
+      case 'lp':          cost.lp = parseInt(val, 10); break;
+      case 'discard':     cost.discard = parseInt(val, 10); break;
       case 'tributeSelf': cost.tributeSelf = true; break;
       case 'lpHalf':      cost.lpHalf = true; break;
     }

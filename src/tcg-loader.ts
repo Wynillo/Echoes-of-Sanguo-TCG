@@ -19,9 +19,6 @@ export class TcgFormatError extends Error {
   }
 }
 
-// ── Constants ───────────────────────────────────────────────
-const SUPPORTED_FORMAT_VERSION = 2;
-
 // ── Helpers ─────────────────────────────────────────────────
 // Load a metadata file
 async function loadMetadataFile<T extends { key: string; value?: string }>(
@@ -43,8 +40,8 @@ async function loadMetadataFile<T extends { key: string; value?: string }>(
       }
     }
     return data;
-  } catch {
-    warnings.push(`${filename}: failed to parse, using defaults`);
+  } catch (e) {
+    warnings.push(`${filename}: failed to parse, using defaults (${e instanceof Error ? e.message : e})`);
     return undefined;
   }
 }
@@ -149,8 +146,8 @@ export async function loadTcgFile(
   if (metaFile) {
     try {
       meta = JSON.parse(await metaFile.async('string'));
-    } catch {
-      warnings.push('meta.json: failed to parse, skipping');
+    } catch (e) {
+      warnings.push(`meta.json: failed to parse, skipping (${e instanceof Error ? e.message : e})`);
     }
   }
 
@@ -160,8 +157,8 @@ export async function loadTcgFile(
   if (starterDecksFile) {
     try {
       starterDecks = JSON.parse(await starterDecksFile.async('string'));
-    } catch {
-      warnings.push('starterDecks.json: failed to parse, skipping');
+    } catch (e) {
+      warnings.push(`starterDecks.json: failed to parse, skipping (${e instanceof Error ? e.message : e})`);
     }
   }
 
@@ -171,8 +168,8 @@ export async function loadTcgFile(
   if (rulesFile) {
     try {
       rules = JSON.parse(await rulesFile.async('string'));
-    } catch {
-      warnings.push('rules.json: failed to parse, skipping');
+    } catch (e) {
+      warnings.push(`rules.json: failed to parse, skipping (${e instanceof Error ? e.message : e})`);
     }
   }
 
@@ -186,14 +183,18 @@ export async function loadTcgFile(
       if (shopData!.backgrounds) {
         rawShopBackgrounds = new Map();
         for (const [key, path] of Object.entries(shopData!.backgrounds)) {
+          if (typeof path !== 'string' || path.startsWith('/') || path.includes('..')) {
+            warnings.push(`shop.json: invalid background path "${path}"`);
+            continue;
+          }
           const bgFile = zip.file(path);
           if (bgFile) {
             rawShopBackgrounds.set(key, await bgFile.async('arraybuffer'));
           }
         }
       }
-    } catch {
-      warnings.push('shop.json: failed to parse, using defaults');
+    } catch (e) {
+      warnings.push(`shop.json: failed to parse, using defaults (${e instanceof Error ? e.message : e})`);
     }
   }
 
@@ -206,18 +207,19 @@ export async function loadTcgFile(
         opponents = data;
         opponents.sort((a, b) => a.id - b.id);
       }
-    } catch {
-      warnings.push('opponents.json: failed to parse, skipping');
+    } catch (e) {
+      warnings.push(`opponents.json: failed to parse, skipping (${e instanceof Error ? e.message : e})`);
     }
   }
   onProgress?.(65);
 
   if (opponents && localeOverrides) {
     for (const [, localeData] of localeOverrides.entries()) {
-      const oppLocales = (localeData as any).opponents;
+      const oppLocales = (localeData as Record<string, unknown>).opponents;
       if (oppLocales && typeof oppLocales === 'object') {
+        const oppMap = oppLocales as Record<string, unknown>;
         for (const opp of opponents) {
-          const entry = oppLocales[String(opp.id)];
+          const entry = oppMap[String(opp.id)] as Record<string, string> | undefined;
           if (entry) {
             if (!opp.name && entry.name) opp.name = entry.name;
             if (!opp.title && entry.title) opp.title = entry.title;
@@ -268,8 +270,8 @@ export async function loadTcgFile(
       campaignData = JSON.parse(await campaignFile.async('string'));
       const campaignWarnings = validateCampaignJson(campaignData!);
       warnings.push(...campaignWarnings);
-    } catch {
-      warnings.push('campaign.json: failed to parse, skipping');
+    } catch (e) {
+      warnings.push(`campaign.json: failed to parse, skipping (${e instanceof Error ? e.message : e})`);
     }
   }
 
@@ -284,8 +286,8 @@ export async function loadTcgFile(
       if (formulasData?.formulas && Array.isArray(formulasData.formulas)) {
         fusionFormulas = formulasData.formulas as TcgFusionFormula[];
       }
-    } catch {
-      warnings.push('fusion_formulas.json: failed to parse, skipping');
+    } catch (e) {
+      warnings.push(`fusion_formulas.json: failed to parse, skipping (${e instanceof Error ? e.message : e})`);
     }
   }
   onProgress?.(100);
